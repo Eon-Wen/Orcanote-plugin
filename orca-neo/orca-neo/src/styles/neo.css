@@ -1231,11 +1231,20 @@ input.orca-input:focus {
   transition:
     background-color var(--neo-transition),
     color var(--neo-transition),
-    scale 0.12s var(--neo-ease-spring-1);
+    opacity 0.12s var(--neo-ease-spring-1);
 }
 
+/* 按下反馈：用 opacity。
+   注意：这里绝不能使用 scale / transform / filter 等属性 —— CSS 规范规定
+   scale（individual transform property）非 none、或 filter 非 none 时，元素都会
+   为 absolute/fixed 后代建立包含块（已用无头 Chrome 实验证实两者在按下瞬间
+   都会让按钮变成 offsetParent）。Orca 的 Popup 把弹层 portal 到触发元素的
+   offsetParent 并按「相对该元素」写入坐标；按下瞬间按钮成为 offsetParent，
+   松手后按钮退出包含块角色，弹层 absolute 的定位基准跳回 #headbar/#sidebar，
+   坐标被重新解释，于是右上角菜单 / 左下角新建页面弹层整体扑到屏幕左上角。
+   opacity 只建立层叠上下文、不参与 offsetParent 解析，无此副作用。 */
 .orca-button:active:not(:disabled) {
-  scale: 0.97;
+  opacity: 0.7;
 }
 
 .orca-button.solid {
