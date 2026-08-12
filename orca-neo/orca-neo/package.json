@@ -1,6 +1,6 @@
 {
   "name": "orca-neo",
-  "version": "2.0.0-beta.0.0.1",
+  "version": "1.0.1",
   "description": "Neo theme for Orca Note — a port of SiYuan's Neo theme & Neo-Plus plugin",
   "type": "module",
   "main": "dist/index.js",
