@@ -18,6 +18,12 @@ import { setColorSidebar, stopColorSidebar } from "./colorSidebar"
 import { renderNeoHeadbar } from "./headbar"
 import { initTrash, disposeTrash } from "./trash"
 import { installTrashMenuInjector, disposeTrashMenuInjector } from "./trashMenuInject"
+import {
+  installRefMigrateInjector,
+  disposeRefMigrateInjector,
+} from "./refMigrateInject"
+import { currentEditorBlockId, repairAllDanglingTags, repairIncomplete } from "./refMigrate"
+import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
 
@@ -167,6 +173,37 @@ export async function load() {
   await initTrash()
   installTrashMenuInjector()
 
+  // 精细迁移引用：把「精细迁移引用」按钮注入反链面板工具条（原生渲染无插件贡献点）
+  installRefMigrateInjector()
+
+  // 后台全局修复：历史 bug 可能留下悬空 _tags（会让标签选择菜单 yu.map 崩溃）。
+  // 修复依赖编辑器面板（setProperties 是编辑器命令），故延迟几秒并带重试：
+  // 首次 4s，若仍有未修成的坏块则每 12s 重试，最多 4 次。
+  const autoRepair = (attempt: number) => {
+    void repairAllDanglingTags().then(() => {
+      if (repairIncomplete() && attempt < 4) {
+        setTimeout(() => autoRepair(attempt + 1), 12000)
+      }
+    })
+  }
+  setTimeout(() => autoRepair(1), 4000)
+
+  // 手动修复入口：命令面板可搜到，弹窗报结果（用于验证/紧急修复）
+  orca.commands.registerCommand(
+    `${PLUGIN_NAME}.repairtags`,
+    async () => {
+      try {
+        const n = await repairAllDanglingTags(true)
+        if (n < 0) window.alert("[Neo] 悬空标签扫描失败，请查看控制台日志")
+        else if (n === 0) window.alert("[Neo] 扫描完成：未发现悬空标签（数据干净）")
+        else window.alert(`[Neo] 已修复 ${n} 个块的悬空标签，现在可以正常打标签了`)
+      } catch (e: any) {
+        window.alert(`[Neo] 修复出错：${e?.message ?? e}`)
+      }
+    },
+    "Neo: 修复悬空标签（全库扫描）",
+  )
+
   orca.commands.registerCommand(
     `${PLUGIN_NAME}.reload`,
     () => {
@@ -175,13 +212,37 @@ export async function load() {
     },
     "Neo: 重新应用主题设置",
   )
+
+  // 精细迁移引用兜底入口（命令面板可搜到）：对当前编辑器块打开迁移弹窗
+  orca.commands.registerCommand(
+    `${PLUGIN_NAME}.refmigrate`,
+    () => {
+      try {
+        const id = currentEditorBlockId()
+        if (id == null) {
+          console.warn("[REFMIGRATE] 命令入口：无法确定当前块")
+          window.alert("[精细迁移引用] 无法确定当前块")
+          return
+        }
+        console.log("[REFMIGRATE] 命令入口：打开迁移弹窗，来源块", id)
+        openRefMigrateDialog(id)
+      } catch (e: any) {
+        console.error("[REFMIGRATE] 命令入口异常", e)
+        window.alert(`[精细迁移引用] 打开失败：${e?.message ?? e}`)
+      }
+    },
+    "Neo: 精细迁移引用（当前块反链）",
+  )
 }
 
 export async function unload() {
   orca.commands.unregisterCommand(`${PLUGIN_NAME}.reload`)
+  orca.commands.unregisterCommand(`${PLUGIN_NAME}.refmigrate`)
+  orca.commands.unregisterCommand(`${PLUGIN_NAME}.repairtags`)
   orca.headbar.unregisterHeadbarButton(`${PLUGIN_NAME}.menu`)
   disposeTrashMenuInjector()
   disposeTrash()
+  disposeRefMigrateInjector()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)

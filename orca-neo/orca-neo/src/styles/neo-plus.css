@@ -1190,3 +1190,183 @@ body.neo-frostedglass .neo-wc-popup {
   border-top: 1px solid var(--neo-border-soft);
   text-align: right;
 }
+
+/* --------------------------------------------------------------------------
+   精细迁移引用（反链面板 v1）
+   - .neo-refmig-btn   注入到反链面板工具条的按钮
+   - .neo-refmig-pop   复用 .neo-trash-backdrop 居中遮罩的弹窗
+   -------------------------------------------------------------------------- */
+.neo-refmig-btn {
+  margin-left: 8px;
+  padding: 2px 10px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--neo-accent, #4f7cff);
+  background: transparent;
+  border: 1px solid var(--neo-border-soft, rgba(127, 127, 127, 0.3));
+  border-radius: 6px;
+  cursor: pointer;
+}
+.neo-refmig-btn:hover {
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.neo-refmig-pop {
+  width: 560px;
+  max-width: 92vw;
+  max-height: 82vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--neo-surface, #fff);
+  color: var(--neo-text, #1f2329);
+  border-radius: 14px;
+  padding: 16px;
+  font-size: 14px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+}
+.neo-refmig-src {
+  margin-left: 6px;
+  font-size: 12px;
+  opacity: 0.6;
+  font-weight: 400;
+}
+.neo-refmig-body {
+  flex: 1;
+  overflow: auto;
+  margin: 10px 0;
+}
+.neo-refmig-list {
+  display: flex;
+  flex-direction: column;
+}
+.neo-refmig-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-bottom: 1px solid var(--neo-border-soft, rgba(127, 127, 127, 0.18));
+}
+.neo-refmig-row-head {
+  font-weight: 600;
+  opacity: 0.7;
+  border-bottom: 1px solid var(--neo-border, rgba(127, 127, 127, 0.3));
+}
+.neo-refmig-cell {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.neo-refmig-title {
+  cursor: default;
+}
+.neo-refmig-type {
+  flex: 0 0 84px;
+  text-align: right;
+  font-size: 12px;
+  opacity: 0.6;
+}
+.neo-refmig-dst {
+  border-top: 1px solid var(--neo-border-soft, rgba(127, 127, 127, 0.18));
+  padding-top: 10px;
+}
+.neo-refmig-dst-label {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-bottom: 6px;
+}
+.neo-refmig-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  font-size: 13px;
+  border-radius: 8px;
+  border: 1px solid var(--neo-border, rgba(127, 127, 127, 0.3));
+  background: var(--neo-bg, #fff);
+  color: var(--neo-text, #1f2329);
+}
+.neo-refmig-mode {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--neo-accent, #4f7cff);
+  opacity: 0.9;
+}
+.neo-refmig-modes {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.neo-refmig-modebtn {
+  flex: 1;
+  padding: 5px 0;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--neo-border-soft, rgba(127, 127, 127, 0.3));
+  background: transparent;
+  color: var(--neo-text, #1f2329);
+  cursor: pointer;
+}
+.neo-refmig-modebtn-on {
+  background: var(--neo-accent, #4f7cff);
+  border-color: var(--neo-accent, #4f7cff);
+  color: #fff;
+}
+.neo-refmig-cands {
+  margin-top: 8px;
+  max-height: 160px;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.neo-refmig-cand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 2px;
+  cursor: pointer;
+  font-size: 13px;
+}
+.neo-refmig-cand span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.neo-refmig-go {
+  padding: 7px 16px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  background: var(--neo-accent, #4f7cff);
+}
+.neo-refmig-go:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.neo-refmig-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 0 2px;
+}
+.neo-refmig-pagerbtn {
+  padding: 3px 10px;
+  font-size: 12px;
+  border-radius: 6px;
+  border: 1px solid var(--neo-border-soft, rgba(127, 127, 127, 0.3));
+  background: transparent;
+  color: var(--neo-text, #1f2329);
+  cursor: pointer;
+}
+.neo-refmig-pagerbtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.neo-refmig-pagerinfo {
+  font-size: 12px;
+  opacity: 0.75;
+}
