@@ -863,7 +863,17 @@ body.neo-vertical-tabs.neo-browser-tabs .neo-tabbar-resize:hover::after {
   width: 18px;
   height: 18px;
   margin: 0 2px 0 4px;
+  /* 父级 .orca-tags 是 display:inline-flex，dot 作为 flex 子项，
+     vertical-align 在 flex item 上无效 —— 必须用 align-self 才能在
+     行内垂直居中；否则 dot 被 flex 默认 align-items 顶到行侧，
+     看起来像贴在文字底部而非与文字中间对齐。 */
+  align-self: center;
   vertical-align: middle;
+  /* 在 flex 居中之基础上再上移 2px，使圆环视觉重心与文字字身中心对齐
+     （几何居中时圆环会略显偏下）；用相对定位而非 transform，避免与
+     hover 的 scale() 冲突。 */
+  position: relative;
+  top: -2px;
   cursor: pointer;
   transition: transform 0.15s;
 }
