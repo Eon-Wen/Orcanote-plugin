@@ -586,6 +586,16 @@ body {
     border-radius var(--neo-transition);
 }
 
+/* 用户决定（2026-08-13）：无序列表的 bullet 统一使用虎鲸原生小圆点，
+   Neo 自绘的方形/菱形/圆形 bullet 不再显示。
+   开启彩色列表时由 neo-plus.css 的 neo-colorful-list 规则隐藏 Neo bullet；
+   这里补充关闭彩色列表时同样隐藏，避免「原生小圆点前面多出一颗自绘 bullet」。 */
+body:not(.neo-colorful-list)
+  .orca-repr-ul
+  > .orca-repr-main::before {
+  display: none !important;
+}
+
 /* 第 2 级：45° 菱形 */
 .orca-repr-ul
   > .orca-repr-children
