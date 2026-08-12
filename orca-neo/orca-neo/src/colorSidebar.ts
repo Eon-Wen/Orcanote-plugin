@@ -1,75 +1,207 @@
 /**
- * 侧栏彩色条目
- * 给「收藏 / 页面 / 标签」下每个顶层块分配一个莫兰迪色，写入 --neo-item-color；
- * 其下每个行 (.neo-citem) 继承该色作为底色，彩色只落在块自身，不合并成大背景。
+ * 彩色侧栏：参考思源笔记「彩色文档树」的做法，给侧栏每个条目上色。
  *
- * 注意：本模块只为行/块添加 .neo-citem / .neo-cwrap 类并写入 --neo-item-color 变量，
- * 真正的外观（含「不再使用从左到右由深变浅的渐变」的均匀纯色）由 neo-plus.css 定义。
+ * 配色规则（最新）：
+ *   - 顶级块（收藏 / 页面 / 标签 下的最高级别条目）按出现顺序循环使用
+ *     莫兰迪色系「赤 → 橙 → 黄 → 绿 → 青 → 蓝 → 紫」，每个列表独立从赤色起算。
+ *   - 顶级块展开后的子块（树状子节点）与所属顶级块同色。
+ *
+ * 观感（#2）：字体色 = 上述颜色，背景 = 同色磨砂半透明（backdrop-filter 营造层次）、
+ * 直角框、相邻块有间距、背景从左到右渐淡。
+ *
+ * 日历（#3）：每月一个不同基色，日期数字沿该月做渐变；表头（年/月/Now）、星期行、
+ * 以及点击年/月筛选时出现的弹窗（年/月列表）也都为彩色。
+ *
+ * 最顶端数据库名称（#4）：彩色，背景不变（由 neo.css 处理）。
  */
 
-const WRAPPER_COMBINED =
-  ".orca-fav-item, .orca-aliased-block, .orca-tags-tag"
-const ROW_COMBINED =
-  ".orca-fav-item-item, .orca-aliased-block-item, .orca-tags-tag-item"
-
-/** 莫兰迪色板（低饱和、柔和） */
-const MORANDI = [
-  "#9fb3c8",
-  "#c8a7a0",
-  "#a3c2a0",
-  "#c8bf9a",
-  "#b0a0c8",
-  "#9fc8bd",
-  "#c8b39a",
-  "#9fa3c8",
-  "#c89ab1",
-  "#9fc8a8",
-  "#c89f9a",
-  "#a0c0c8",
+const ITEM_SELECTORS = [
+  "#sidebar .orca-fav-item-item", // 收藏
+  "#sidebar .orca-aliased-block-item", // 页面（别名块树，与收藏不同组件）
+  "#sidebar .orca-tags-tag-item", // 标签
 ]
 
+const CAL_DAY_SELECTOR = "#sidebar .orca-calendar .day" // 日历日期格
+
+// 日历表头（年 / 月 / Now）与星期行
+const CAL_HEAD_SELECTORS = [
+  "#sidebar .orca-calendar .choosen-year",
+  "#sidebar .orca-calendar .choosen-month",
+  "#sidebar .orca-calendar .go-now",
+  "#sidebar .orca-calendar .weekday",
+]
+
+// 点击年/月筛选时出现的弹窗（年列表 / 月列表）
+const CAL_POP_SELECTORS = [
+  "#sidebar .orca-calendar .years .year",
+  "#sidebar .orca-calendar .months .month",
+]
+
+// 列表条目的最外层「包装」元素（树结构：包装内放本行 + 子包装）
+const WRAPPER_SELECTORS = [
+  ".orca-fav-item", // 收藏
+  ".orca-aliased-block", // 页面（别名块树）
+  ".orca-tags-tag", // 标签
+]
+const WRAPPER_COMBINED = WRAPPER_SELECTORS.join(",")
+const ROW_COMBINED = ITEM_SELECTORS.join(",")
+
+/** 莫兰迪色系：赤 → 橙 → 黄 → 绿 → 青 → 蓝 → 紫，低饱和、带灰调 */
+const MORANDI = [
+  "hsl(5 30% 62%)", // 赤
+  "hsl(28 35% 64%)", // 橙
+  "hsl(45 32% 66%)", // 黄
+  "hsl(95 20% 60%)", // 绿
+  "hsl(175 22% 60%)", // 青
+  "hsl(215 25% 64%)", // 蓝
+  "hsl(280 20% 66%)", // 紫
+]
 function morandi(i: number): string {
-  return MORANDI[((i % MORANDI.length) + MORANDI.length) % MORANDI.length]!
+  return MORANDI[((i % MORANDI.length) + MORANDI.length) % MORANDI.length]
 }
 
-function paintItems(sidebar: HTMLElement) {
-  const wrappers = sidebar.querySelectorAll<HTMLElement>(WRAPPER_COMBINED)
-  wrappers.forEach((wrap, idx) => {
-    const color = morandi(idx)
-    wrap.style.setProperty("--neo-item-color", color)
-    wrap.classList.add("neo-cwrap")
-    const rows = wrap.querySelectorAll<HTMLElement>(ROW_COMBINED)
-    rows.forEach((row) => row.classList.add("neo-citem"))
+/** 向上找最近的列表包装元素 */
+function closestWrapper(el: Element | null, combined: string): Element | null {
+  let p: Element | null = el
+  while (p) {
+    if (p.matches && p.matches(combined)) return p
+    p = p.parentElement
+  }
+  return null
+}
+
+/** 给侧栏每个条目上色：顶级块按列表分组循环莫兰迪色，整棵子树（行 + 背景）共享同色。 */
+function paintItems(sidebar: Element) {
+  const wrappers = Array.from(
+    sidebar.querySelectorAll<HTMLElement>(WRAPPER_COMBINED),
+  )
+
+  // 把顶级包装按「所属列表容器」分组，每组独立从赤色开始循环
+  const groups = new Map<Element, Element[]>()
+  for (const w of wrappers) {
+    if (closestWrapper(w.parentElement, WRAPPER_COMBINED)) continue // 子块，交给父级统一上色
+    const key = w.parentElement as Element
+    const arr = groups.get(key)
+    if (arr) arr.push(w)
+    else groups.set(key, [w])
+  }
+
+  for (const list of groups.values()) {
+    list.forEach((w, i) => {
+      const color = morandi(i)
+      // 颜色写到顶级包装上，整棵子树（行 + 背景）共享同色
+      w.style.setProperty("--neo-item-color", color)
+      // 顶级包装打标：本子树（顶级块 + 其下展开的所有子块）共用一个连续背景
+      w.classList.add("neo-cwrap")
+      // 本包装内的所有行（顶级 + 其下展开的子块）共用同一颜色
+      w.querySelectorAll<HTMLElement>(ROW_COMBINED).forEach((el) => {
+        el.style.setProperty("--neo-item-color", color)
+        el.classList.add("neo-citem")
+      })
+    })
+  }
+}
+
+function paintCalendar(sidebar: Element) {
+  // 每月一个不同基色（0~11 → 0/30/60...）
+  const baseHue = (new Date().getMonth() * 30) % 360
+  const headColor = `hsl(${baseHue} 70% 42%)`
+
+  // 日期数字：每月不同基色 + 沿日期做渐变（不同月份不同渐变）
+  const now = new Date()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  sidebar.querySelectorAll(CAL_DAY_SELECTOR).forEach((el) => {
+    const n = parseInt((el.textContent || "").trim(), 10)
+    const day = Number.isFinite(n) ? Math.min(Math.max(n, 1), daysInMonth) : 1
+    const hue = (baseHue + ((day - 1) / Math.max(daysInMonth - 1, 1)) * 60) % 360
+    el.style.setProperty("--neo-item-color", `hsl(${hue} 72% 42%)`)
+    el.classList.add("neo-cday")
+  })
+
+  // 表头（年/月/Now）与星期行：用当月基色
+  for (const sel of CAL_HEAD_SELECTORS) {
+    sidebar.querySelectorAll(sel).forEach((el) => {
+      el.style.setProperty("--neo-item-color", headColor)
+      el.classList.add("neo-ccal")
+    })
+  }
+
+  // 筛选弹窗（年列表 / 月列表）：随序号渐变，更丰富
+  sidebar.querySelectorAll(CAL_POP_SELECTORS[0]).forEach((el, i) => {
+    el.style.setProperty("--neo-item-color", `hsl(${(baseHue + i * 6) % 360} 70% 45%)`)
+    el.classList.add("neo-ccal")
+  })
+  sidebar.querySelectorAll(CAL_POP_SELECTORS[1]).forEach((el, i) => {
+    el.style.setProperty("--neo-item-color", `hsl(${(baseHue + i * 18) % 360} 70% 45%)`)
+    el.classList.add("neo-ccal")
   })
 }
 
-function paintCalendar(sidebar: HTMLElement) {
-  const cal = sidebar.querySelector<HTMLElement>(".orca-calendar")
-  if (cal) cal.classList.add("neo-ccal")
-}
-
-function paint(sidebar: HTMLElement) {
+function paint() {
+  const sidebar = document.getElementById("sidebar")
+  if (!sidebar) return
   paintItems(sidebar)
   paintCalendar(sidebar)
 }
 
 let observer: MutationObserver | null = null
+let initObserver: MutationObserver | null = null
+let timer = 0
+
+function schedulePaint() {
+  clearTimeout(timer)
+  timer = window.setTimeout(paint, 120)
+}
+
+function observeSidebar() {
+  const sidebar = document.getElementById("sidebar")
+  if (!sidebar || observer) return
+  observer = new MutationObserver(() => schedulePaint())
+  observer.observe(sidebar, {
+    childList: true,
+    subtree: true,
+    characterData: true,
+  })
+}
 
 export function startColorSidebar() {
-  const sidebar = document.getElementById("sidebar")
-  if (!sidebar) return
-  paint(sidebar)
-  observer = new MutationObserver(() => paint(sidebar))
-  observer.observe(sidebar, { childList: true, subtree: true })
+  if (document.getElementById("sidebar")) {
+    paint()
+    observeSidebar()
+  } else {
+    // 侧栏可能晚于插件加载挂载，先等它出现
+    initObserver = new MutationObserver(() => {
+      if (document.getElementById("sidebar")) {
+        initObserver?.disconnect()
+        initObserver = null
+        paint()
+        observeSidebar()
+      }
+    })
+    initObserver.observe(document.body, { childList: true, subtree: true })
+  }
+}
+
+/** 由「彩色文档树」开关驱动：开 → 上色并监听，关 → 清掉所有彩色类与内联色，
+ *  页面块恢复跟随 Neo 主题配色。main.ts 的 apply() 每次设置变更都会调用它，
+ *  因此菜单里勾选 / 取消勾选会即时生效。 */
+export function setColorSidebar(enabled: boolean) {
+  if (enabled) startColorSidebar()
+  else stopColorSidebar()
 }
 
 export function stopColorSidebar() {
   observer?.disconnect()
   observer = null
-  document
-    .querySelectorAll(".neo-citem, .neo-cwrap, .neo-ccal, .neo-cday")
-    .forEach((el) => {
-      el.classList.remove("neo-citem", "neo-cwrap", "neo-ccal", "neo-cday")
-      ;(el as HTMLElement).style.removeProperty("--neo-item-color")
-    })
+  initObserver?.disconnect()
+  initObserver = null
+  clearTimeout(timer)
+  document.querySelectorAll(".neo-citem, .neo-cday, .neo-ccal").forEach((el) => {
+    el.classList.remove("neo-citem", "neo-cday", "neo-ccal")
+    el.style.removeProperty("--neo-item-color")
+  })
+  document.querySelectorAll(WRAPPER_COMBINED).forEach((el) => {
+    el.classList.remove("neo-cwrap")
+    el.style.removeProperty("--neo-item-color")
+  })
 }

@@ -3,11 +3,21 @@ import {
   applyFeatures,
   applyPalette,
   cleanupDom,
-  smoothCaret,
+  immersive,
+  typewriter,
+  typeSound,
 } from "./features"
-import { SETTINGS_SCHEMA, withDefaults, type NeoSettings } from "./settings"
+import {
+  SETTINGS_SCHEMA,
+  buildPaletteChoices,
+  withDefaults,
+  type NeoSettings,
+} from "./settings"
 import { startScopeHighlight, stopScopeHighlight } from "./scope"
-import { startColorSidebar, stopColorSidebar } from "./colorSidebar"
+import { setColorSidebar, stopColorSidebar } from "./colorSidebar"
+import { renderNeoHeadbar } from "./headbar"
+import { enableTabs, disableTabs } from "./tabs"
+import { enableWordCount, disableWordCount } from "./wordCount"
 
 const PLUGIN_NAME = "orca-neo"
 const THEME_NAME = "Neo"
@@ -18,21 +28,23 @@ const TEXTURES_CSS_ID = "neo-textures-styles"
 let unsubscribe: (() => void) | null = null
 let refresher: AutoRefresher | null = null
 let lastSnapshot = ""
+let modeMql: MediaQueryList | null = null
 
-/** 把插件自带的一份 CSS 以 <link> 挂进 <head>（带去缓存后缀）。
- *  若 <link> 已存在，则强制刷新 href（新时间戳），确保重载插件时 CSS 真正更新。 */
+/** 虎鲸明暗切换时重建配色下拉（按新模式过滤），并立即用新模式重新应用配色。
+ * 否则插件的 --neo-x-* 内联变量（含暗色反转的 background/surface 交换）会停留在
+ * 旧模式的取值，导致反转 / 预设配色在切换明暗后“看似失效”。 */
+function onModeChange() {
+  void refreshPaletteSchema().then(apply)
+}
+
+/** 把插件自带的一份 CSS 以 <link> 挂进 <head>（带去缓存后缀） */
 function injectStyle(id: string, file: string) {
-  const href = `file://${orca.state.dataDir}/plugins/${PLUGIN_NAME}/dist/${file}?_t=${Date.now()}`
-  const existing = document.getElementById(id) as HTMLLinkElement | null
-  if (existing) {
-    existing.href = href
-    return
-  }
+  if (document.getElementById(id)) return
   const link = document.createElement("link")
   link.id = id
   link.rel = "stylesheet"
   link.type = "text/css"
-  link.href = href
+  link.href = `file://${orca.state.dataDir}/plugins/${PLUGIN_NAME}/dist/${file}?_t=${Date.now()}`
   document.head.appendChild(link)
 }
 
@@ -58,13 +70,59 @@ function readSettings(): NeoSettings {
   return withDefaults(orca.state.plugins[PLUGIN_NAME]?.settings)
 }
 
+/** 按虎鲸当前明暗模式重建配色下拉：
+ *  - 浅色模式只暴露浅色配色，深色模式只暴露深色配色；
+ *  - 若当前所选配色在新模式下不可用（例如浅色模式下曾选了深色-only 方案），
+ *    回落到 default（明暗两套都有），避免误用错模式色值；
+ *  - 重新注册设置 schema，使设置面板立即反映新的可选集合。 */
+async function refreshPaletteSchema() {
+  const dark = window.matchMedia("(prefers-color-scheme: dark)").matches
+  const choices = buildPaletteChoices(dark)
+  SETTINGS_SCHEMA.palette.choices = choices
+  const values = choices.map((c) => c.value)
+  const cur = orca.state.plugins[PLUGIN_NAME]?.settings?.palette
+  if (typeof cur === "string" && cur !== "custom" && !values.includes(cur)) {
+    await orca.plugins.setSettings(
+      null,
+      PLUGIN_NAME,
+      { ...readSettings(), palette: "default" },
+    )
+  }
+  await orca.plugins.setSettingsSchema(PLUGIN_NAME, SETTINGS_SCHEMA)
+}
+
 function apply() {
   const settings = readSettings()
   applyPalette(settings)
   applyFeatures(settings)
 
-  if (settings.smoothCaret === true) smoothCaret.enable()
-  else smoothCaret.disable()
+  // 彩色文档树：由「彩色文档树」开关驱动，开 → 莫兰迪色 + 渐变，关 → 跟随 Neo 主题配色
+  setColorSidebar(settings.colorfulDocTree === true)
+
+  // 沉浸模式：跟随光标的强调色高亮带 + 隐藏非必要 UI
+  if (settings.immersive === true) immersive.enable()
+  else immersive.disable()
+
+  // 打字机模式：输入时当前行始终垂直居中
+  if (settings.typewriter === true) typewriter.enable()
+  else typewriter.disable()
+
+  // 打字音：敲击键盘播放打字机音效
+  if (settings.typeSound === true) typeSound.enable()
+  else typeSound.disable()
+
+  // 浏览器式页签条：顶部横排页签 + 拖拽分栏
+  if (settings.browserTabs === true) enableTabs()
+  else disableTabs()
+
+  // 写作进度统计：写作子标签旁的圆点 + 字数/目标完成度面板
+  if (settings.wordCount === true) {
+    enableWordCount(
+      String(settings.wordCountTag ?? "元·主·Express"),
+      String(settings.wordCountTargetProp ?? "目标字数"),
+      String(settings.wordCountDeadlineProp ?? "截止日期"),
+    )
+  } else disableWordCount()
 
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
@@ -80,11 +138,9 @@ function applyIfChanged() {
 
 export async function load() {
   orca.themes.register(PLUGIN_NAME, THEME_NAME, THEME_CSS)
-  await orca.plugins.setSettingsSchema(PLUGIN_NAME, SETTINGS_SCHEMA)
 
   injectPlusStyles()
 
-  startColorSidebar()
   startScopeHighlight()
 
   refresher = new AutoRefresher()
@@ -96,10 +152,17 @@ export async function load() {
     unsubscribe = window.Valtio.subscribe(pluginState, applyIfChanged)
   }
 
+  // 配色下拉按虎鲸明暗模式过滤：初次注册 + 监听明暗切换时重建
+  await refreshPaletteSchema()
+  modeMql = window.matchMedia("(prefers-color-scheme: dark)")
+  modeMql.addEventListener("change", onModeChange)
+
+  // 顶部插件栏入口：点开即出可勾选的 Neo 菜单
+  orca.headbar.registerHeadbarButton(`${PLUGIN_NAME}.menu`, renderNeoHeadbar)
+
   orca.commands.registerCommand(
     `${PLUGIN_NAME}.reload`,
     () => {
-      injectPlusStyles()
       lastSnapshot = ""
       applyIfChanged()
     },
@@ -109,11 +172,18 @@ export async function load() {
 
 export async function unload() {
   orca.commands.unregisterCommand(`${PLUGIN_NAME}.reload`)
+  orca.headbar.unregisterHeadbarButton(`${PLUGIN_NAME}.menu`)
   unsubscribe?.()
   unsubscribe = null
+  modeMql?.removeEventListener("change", onModeChange)
+  modeMql = null
   refresher?.stop()
   refresher = null
-  smoothCaret.disable()
+  immersive.disable()
+  typewriter.disable()
+  typeSound.disable()
+  disableTabs()
+  disableWordCount()
   stopScopeHighlight()
   stopColorSidebar()
   removePlusStyles()

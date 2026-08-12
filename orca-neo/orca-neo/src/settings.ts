@@ -1,4 +1,4 @@
-import { PALETTES } from "./palettes"
+import { PALETTES, type Palette } from "./palettes"
 import type { SettingsSchema } from "./orca"
 
 /** 一个功能开关的元信息：设置项 key ↔ body class */
@@ -15,7 +15,7 @@ export const FEATURES: FeatureToggle[] = [
     key: "frostedglass",
     className: "neo-frostedglass",
     label: "毛玻璃",
-    description: "侧栏、顶栏、菜单与弹层改为半透明并模糊背景。",
+    description: "菜单、弹层、模态与悬浮面包屑改为半透明并模糊背景（侧栏不受影响）。",
     defaultValue: true,
   },
   {
@@ -33,11 +33,12 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: false,
   },
   {
-    key: "colorfulSelection",
-    className: "neo-colorful-selection",
-    label: "彩色选区",
-    description: "选中文本使用强调色高亮。",
-    defaultValue: true,
+    key: "colorfulDocTree",
+    className: "neo-colorful-doctree",
+    label: "彩色文档树",
+    description:
+      "参考思源「彩色文档树」：侧栏的页面 / 收藏 / 标签与日历改用莫兰迪色系并带渐变背景，每个列表独立循环色相、子树同色。关闭后页面块恢复跟随 Neo 主题配色。",
+    defaultValue: false,
   },
   {
     key: "listLine",
@@ -47,18 +48,33 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: true,
   },
   {
-    key: "focusBlock",
-    className: "neo-focus-block",
-    label: "聚焦块指示",
-    description: "正在编辑的块显示淡色底纹与左侧指示条。",
-    defaultValue: false,
-  },
-  {
     key: "immersive",
     className: "neo-immersive",
     label: "沉浸模式",
-    description: "隐藏顶栏工具与块侧边按钮，鼠标移入时才显示。",
+    description: "当前编辑块渲染一条跟随光标的强调色高亮带（聚焦当前行），并隐藏顶栏工具与块侧边按钮。",
     defaultValue: false,
+  },
+  {
+    key: "typewriter",
+    className: "neo-typewriter",
+    label: "打字机模式",
+    description: "输入时当前行始终保持在编辑器垂直居中，像打字机一样。",
+    defaultValue: false,
+  },
+  {
+    key: "typeSound",
+    className: "neo-type-sound",
+    label: "打字音",
+    description: "敲击键盘时播放打字机音效（取自 keysound 项目，MIT 许可）。",
+    defaultValue: false,
+  },
+  {
+    key: "browserTabs",
+    className: "neo-browser-tabs",
+    label: "缓存编辑器页签",
+    description:
+      "把 Ctrl+Tab 的缓存编辑器列表变成常驻页签条：点击切换、可重排序，拖到面板边缘即可分栏。默认横排在编辑器顶部，可用「垂直页签」改为竖排。",
+    defaultValue: true,
   },
   {
     key: "ide",
@@ -82,65 +98,58 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: false,
   },
   {
-    key: "cardList",
-    className: "neo-card-list",
-    label: "卡片搜索列表",
-    description: "搜索结果、查询结果与反链以卡片形式呈现。",
+    key: "wordCount",
+    className: "neo-word-count",
+    label: "写作进度统计",
+    description:
+      "块被打上「写作标签」的子标签时，在标签旁显示一个小圆环（按完成度着色）；点击查看该块所有子块的字数统计、目标完成度圆环与截止日期信息。",
     defaultValue: true,
   },
   {
     key: "verticalTabs",
     className: "neo-vertical-tabs",
     label: "垂直页签",
-    description: "面板内的查询页签改为纵向排布。",
-    defaultValue: false,
-  },
-  {
-    key: "scrollFade",
-    className: "neo-scroll-fade",
-    label: "卷轴效果",
-    description: "正文顶部与底部渐隐，模拟纸卷。",
-    defaultValue: false,
-  },
-  {
-    key: "smoothCaret",
-    className: "neo-smooth-caret",
-    label: "平滑光标",
-    description: "文本光标以缓动动画在字符间移动。",
-    defaultValue: false,
-  },
-  {
-    key: "highContrast",
-    className: "neo-high-contrast",
-    label: "高对比",
-    description: "提升正文与背景的明度差，改善弱光环境可读性。",
-    defaultValue: false,
-  },
-  {
-    key: "noAnimation",
-    className: "neo-no-animation",
-    label: "关闭动画",
-    description: "移除全部过渡与动画，追求极致响应速度。",
+    description:
+      "缓存编辑器页签改为竖排在编辑器左侧（思源 Neo 同款），拖动右边缘可调宽、双击复位。需先开启「缓存编辑器页签」。",
     defaultValue: false,
   },
 ]
 
-export const PALETTE_CHOICES = [
+/** 始终可用的非预设项（不随明暗模式变化） */
+const PALETTE_SPECIALS = [
   { label: "自定义主题色", value: "custom" },
   { label: "跟随时间", value: "followTime" },
   { label: "每次启动随机", value: "random" },
-  ...PALETTES.map((p) => ({ label: p.label, value: p.id })),
 ]
+
+/** 某配色在给定明暗模式下是否可用（含对应模式的色值） */
+export function paletteAvailableInMode(p: Palette, dark: boolean): boolean {
+  return dark ? Boolean(p.dark) : Boolean(p.light)
+}
+
+/** 按虎鲸当前明暗模式构建配色下拉项：
+ *  - 浅色模式仅列含 light 的方案，深色模式仅列含 dark 的方案；
+ *  - 「自定义 / 跟随时间 / 每次启动随机」始终可用。 */
+export function buildPaletteChoices(dark: boolean): { label: string; value: string }[] {
+  return [
+    ...PALETTE_SPECIALS,
+    ...PALETTES.filter((p) => paletteAvailableInMode(p, dark)).map((p) => ({
+      label: p.label,
+      value: p.id,
+    })),
+  ]
+}
 
 export const SETTINGS_SCHEMA: SettingsSchema = {
   palette: {
     type: "singleChoice",
     label: "配色方案",
     description:
-      "内置 30 套 Neo 预设配色。选择「自定义主题色」时使用下方的主题色；" +
+      "内置 30 套 Neo 预设配色。浅色模式下只列出浅色配色，深色模式下只列出" +
+      "深色配色；选择「自定义主题色」时使用下方的主题色；" +
       "「跟随时间」按晨/昼/暮/夜自动切换；「每次启动随机」每次打开随机挑选一套。",
     defaultValue: "default",
-    choices: PALETTE_CHOICES,
+    choices: buildPaletteChoices(false),
   },
   customColor: {
     type: "color",
@@ -165,17 +174,23 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
     type: "singleChoice",
     label: "纹理",
     description:
-      "移植自 Neo-Plus 的纹理背景。选「无」关闭；其余为 Neo-Plus 原版纹理（颗粒 / 噪点 / 压纹纸 / 羽丝 / 迷彩 / 木纹 / 绒面），由「纹理强度」调节浓淡。纹理以叠加混合(overlay)方式铺满背景，明暗模式均可见。",
+      "忠实移植自思源 Neo-Plus 的全套纹理（共 13 种），由「纹理强度」调节浓淡。纹理以全屏浮层 + 混合模式铺满整窗背景，明暗模式各自调校、均清晰可见。选「无」关闭。",
     defaultValue: "none",
     choices: [
       { label: "无", value: "none" },
-      { label: "颗粒", value: "granule" },
-      { label: "噪点", value: "noise" },
+      { label: "新闻纸", value: "newsprint" },
       { label: "压纹纸", value: "embossedpaper" },
-      { label: "羽丝", value: "feathery" },
-      { label: "迷彩", value: "camouflage" },
+      { label: "噪点", value: "noise" },
+      { label: "亚克力", value: "acrylic" },
+      { label: "棋盘格", value: "checkerboard" },
+      { label: "网格", value: "grid" },
+      { label: "十字点", value: "crossdot" },
       { label: "木纹", value: "wood" },
+      { label: "迷彩", value: "camouflage" },
+      { label: "颗粒", value: "granule" },
+      { label: "羽丝", value: "feathery" },
       { label: "绒面", value: "velvet" },
+      { label: "自定义图", value: "customimage" },
     ],
   },
   ...Object.fromEntries(
@@ -191,10 +206,31 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
   ),
   textureOpacity: {
     type: "number",
-    label: "纹理强度",
+    label: "纹理强度（乘数）",
     description:
-      "编辑器画布上纹理的浓淡，0 为关闭。建议 0.15–0.5：数值越大颗粒/纹路越明显。各纹理自带不同的原始强度（如噪点很淡、压纹纸/木纹较强）。",
-    defaultValue: 0.3,
+      "对当前纹理基础强度的最终乘数，0 为关闭。1 表示采用思源 Neo 的原版强度；可大于 1 加强、小于 1 减弱。各纹理明暗模式下有各自独立的基础强度。",
+    defaultValue: 1,
+  },
+  wordCountTag: {
+    type: "string",
+    label: "写作标签",
+    description:
+      "写作进度统计的父标签名。只有打上它的**子标签**的块才会出现统计圆点（父标签本身不显示）。",
+    defaultValue: "元·主·Express",
+  },
+  wordCountTargetProp: {
+    type: "string",
+    label: "目标字数属性名",
+    description:
+      "在写作子标签上设定目标字数所用的属性名。优先读该块标签上填写的值，未填则回退到标签自身的默认值。",
+    defaultValue: "目标字数",
+  },
+  wordCountDeadlineProp: {
+    type: "string",
+    label: "截止日期属性名",
+    description:
+      "在写作子标签上设定截止日期所用的属性名。弹层会显示该日期，并自动算出「距截止还有多少天」。支持时间戳、ISO 与 YYYY-MM-DD 等写法。",
+    defaultValue: "截止日期",
   },
   backgroundImage: {
     type: "string",

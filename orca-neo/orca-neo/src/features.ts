@@ -1,5 +1,6 @@
 import { PALETTE_MAP, PALETTES, type PaletteScheme } from "./palettes"
-import { FEATURES, type NeoSettings } from "./settings"
+import { FEATURES, paletteAvailableInMode, type NeoSettings } from "./settings"
+import { ENTER_WAV, KEY_WAV } from "./sounds"
 
 const ROOT = document.documentElement
 
@@ -31,14 +32,25 @@ const TIME_PALETTES: { until: number; id: string }[] = [
 
 let randomPaletteId: string | null = null
 
+/** 当前模式下可用的预设配色（含该模式色值的方案） */
+function palettesInMode(dark: boolean): typeof PALETTES {
+  return PALETTES.filter((p) => paletteAvailableInMode(p, dark))
+}
+
 function pickTimePalette(): string {
+  const dark = isDark()
   const h = new Date().getHours()
-  return TIME_PALETTES.find((t) => h < t.until)?.id ?? "default"
+  // 优先取当前时段、且当前模式可用的配色；否则退到本模式下第一个时段配色
+  const inMode = TIME_PALETTES.filter((t) => paletteAvailableInMode(PALETTE_MAP[t.id]!, dark))
+  if (inMode.length === 0) return "default"
+  return inMode.find((t) => h < t.until)?.id ?? inMode[inMode.length - 1]!.id
 }
 
 function pickRandomPalette(): string {
   if (randomPaletteId == null) {
-    randomPaletteId = PALETTES[Math.floor(Math.random() * PALETTES.length)]!.id
+    const pool = palettesInMode(isDark())
+    const src = pool.length > 0 ? pool : PALETTES
+    randomPaletteId = src[Math.floor(Math.random() * src.length)]!.id
   }
   return randomPaletteId
 }
@@ -113,8 +125,9 @@ export function applyFeatures(settings: NeoSettings) {
     body.classList.toggle(f.className, settings[f.key] === true)
   }
 
-  // 纹理：先在 body 上切换 neo-texture，再叠加具体纹理类 neo-texture-<id>
-  // （每个纹理图由 textures.css 按类名提供 background-image）
+  // 纹理：先在 body 上切换 neo-texture，再叠加具体纹理类 neo-texture-<id>。
+  // 每种纹理的基础强度(--neo-texture-base)/混合(--neo-texture-blend)等由
+  // textures.css 按 body.neo-texture-<id> 提供；最终不透明度 = base × --neo-texture-opacity（乘数）。
   const texId = (settings.texture ?? "none") as string
   const texClass = texId !== "none" ? `neo-texture-${texId}` : ""
   const texOpacity = Number(settings.textureOpacity)
@@ -127,8 +140,19 @@ export function applyFeatures(settings: NeoSettings) {
   if (hasTexture && texClass) {
     body.classList.add(texClass)
     ROOT.style.setProperty("--neo-texture-opacity", String(texOpacity))
+    // 自定义图纹理：复用“自定义背景图”设置里的图片，避免与背景功能互相干扰
+    if (texId === "customimage") {
+      const img = (settings.backgroundImage ?? "").trim()
+      ROOT.style.setProperty(
+        "--neo-customimage-url",
+        img ? `url("${img.replace(/"/g, '\\"')}")` : "none",
+      )
+    } else {
+      ROOT.style.removeProperty("--neo-customimage-url")
+    }
   } else {
     ROOT.style.removeProperty("--neo-texture-opacity")
+    ROOT.style.removeProperty("--neo-customimage-url")
   }
 
   const bg = (settings.backgroundImage ?? "").trim()
@@ -141,93 +165,6 @@ export function applyFeatures(settings: NeoSettings) {
     ROOT.style.removeProperty("--neo-bg-veil")
   }
 }
-
-/* --------------------------------------------------------------------------
-   平滑光标
-   -------------------------------------------------------------------------- */
-class SmoothCaret {
-  private el: HTMLDivElement | null = null
-  private raf = 0
-  private hideTimer = 0
-  private movingTimer = 0
-  private readonly onEvent = () => this.schedule()
-
-  enable() {
-    if (this.el) return
-    const el = document.createElement("div")
-    el.className = "neo-caret"
-    document.body.appendChild(el)
-    this.el = el
-
-    document.addEventListener("selectionchange", this.onEvent)
-    document.addEventListener("scroll", this.onEvent, true)
-    window.addEventListener("resize", this.onEvent)
-    this.schedule()
-  }
-
-  disable() {
-    document.removeEventListener("selectionchange", this.onEvent)
-    document.removeEventListener("scroll", this.onEvent, true)
-    window.removeEventListener("resize", this.onEvent)
-    cancelAnimationFrame(this.raf)
-    clearTimeout(this.hideTimer)
-    clearTimeout(this.movingTimer)
-    this.el?.remove()
-    this.el = null
-  }
-
-  private schedule() {
-    cancelAnimationFrame(this.raf)
-    this.raf = requestAnimationFrame(() => this.update())
-  }
-
-  private update() {
-    const el = this.el
-    if (!el) return
-
-    const sel = window.getSelection()
-    if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) {
-      el.classList.remove("neo-caret-visible")
-      return
-    }
-
-    const range = sel.getRangeAt(0)
-    const active = document.activeElement
-    if (!(active instanceof HTMLElement) || !active.isContentEditable) {
-      el.classList.remove("neo-caret-visible")
-      return
-    }
-
-    let rect = range.getClientRects()[0]
-    if (!rect || (rect.width === 0 && rect.height === 0)) {
-      // 空行时 range 没有可用矩形，退回到所在元素的位置
-      const probe = range.startContainer
-      const host =
-        probe.nodeType === Node.ELEMENT_NODE
-          ? (probe as HTMLElement)
-          : probe.parentElement
-      rect = host?.getBoundingClientRect() as DOMRect
-    }
-    if (!rect) {
-      el.classList.remove("neo-caret-visible")
-      return
-    }
-
-    const height = rect.height || parseFloat(getComputedStyle(active).lineHeight) || 18
-    el.style.left = `${rect.left}px`
-    el.style.top = `${rect.top}px`
-    el.style.height = `${height}px`
-    el.classList.add("neo-caret-visible", "neo-caret-moving")
-
-    clearTimeout(this.movingTimer)
-    this.movingTimer = window.setTimeout(
-      () => el.classList.remove("neo-caret-moving"),
-      140,
-    )
-  }
-}
-
-export const smoothCaret = new SmoothCaret()
 
 /* --------------------------------------------------------------------------
    跟随时间 / 系统暗色变化的自动重算
@@ -259,6 +196,248 @@ export class AutoRefresher {
     this.callback = null
   }
 }
+
+/* --------------------------------------------------------------------------
+   沉浸模式 —— 忠实移植思源 Neo「沉浸模式」的核心效果：
+   当前编辑的块（光标所在块）顶部到下方渲染一条跟随光标的柔和强调色高亮带，
+   块上下自然淡出，形成“聚焦当前行”的沉浸感；同时隐藏顶栏工具与块侧边按钮，
+   鼠标移入时才显现。
+
+   实现：JS 监听光标变化 / 滚动 / 窗口缩放，把光标所在 .orca-block 的视口中心 Y
+   与半高写入遮罩元素的 --neo-iveil-y / --neo-iveil-h；CSS 用这两条变量画一条
+   强调色渐变带。坐标用视口坐标，遮罩 position:fixed 全屏铺开，故与滚动天然对齐。
+   -------------------------------------------------------------------------- */
+class Immersive {
+  private veil: HTMLDivElement | null = null
+  private raf = 0
+  private readonly onEvent = () => this.schedule()
+
+  enable() {
+    if (this.veil) return
+    const veil = document.createElement("div")
+    veil.className = "neo-immersive-veil"
+    document.body.appendChild(veil)
+    this.veil = veil
+
+    document.addEventListener("selectionchange", this.onEvent)
+    window.addEventListener("scroll", this.onEvent, true)
+    window.addEventListener("resize", this.onEvent)
+    this.update()
+  }
+
+  disable() {
+    document.removeEventListener("selectionchange", this.onEvent)
+    window.removeEventListener("scroll", this.onEvent, true)
+    window.removeEventListener("resize", this.onEvent)
+    cancelAnimationFrame(this.raf)
+    this.veil?.remove()
+    this.veil = null
+  }
+
+  private schedule() {
+    cancelAnimationFrame(this.raf)
+    this.raf = requestAnimationFrame(() => this.update())
+  }
+
+  private update() {
+    const veil = this.veil
+    if (!veil) return
+
+    const sel = window.getSelection()
+    const active = document.activeElement
+    if (
+      !sel ||
+      sel.rangeCount === 0 ||
+      !(active instanceof HTMLElement) ||
+      !active.isContentEditable
+    ) {
+      veil.style.opacity = "0"
+      return
+    }
+
+    // 高亮区 = 光标所在的「当前行」。用 range 的行矩形，而不是整块 rect，
+    // 这样父块本身即使包含子块，光带也只照在光标这一行、不会连着子块一起亮。
+    const range = sel.getRangeAt(0)
+    let rect = range.getClientRects()[0]
+    if (!rect || (rect.height === 0 && rect.width === 0)) {
+      // 空行 / 取不到矩形时，退到光标所在块自身的首行内容
+      const node: Node | null =
+        range.startContainer.nodeType === Node.ELEMENT_NODE
+          ? range.startContainer
+          : range.startContainer.parentElement
+      const block =
+        (node as HTMLElement | null)?.closest?.(".orca-block") ??
+        (active.closest(".orca-block") as HTMLElement | null) ??
+        active
+      const host =
+        (block?.querySelector(".orca-repr-main") as HTMLElement | null) ??
+        block ??
+        active
+      rect = host.getBoundingClientRect()
+    }
+    if (!rect || (rect.width === 0 && rect.height === 0)) {
+      veil.style.opacity = "0"
+      return
+    }
+
+    // 把光带裁剪到编辑器区域（#main），不照到顶栏 / 侧栏等 UI 部分
+    const region =
+      document.getElementById("main") ??
+      document.querySelector(".orca-panels-container")
+    let clip = ""
+    if (region) {
+      const r = region.getBoundingClientRect()
+      clip = `inset(${r.top}px 0px ${window.innerHeight - r.bottom}px ${r.left}px)`
+    }
+    veil.style.clipPath = clip || "none"
+
+    const y = rect.top + rect.height / 2
+    const h = rect.height / 2
+    veil.style.opacity = "1"
+    veil.style.setProperty("--neo-iveil-y", `${y}px`)
+    veil.style.setProperty("--neo-iveil-h", `${h}px`)
+  }
+}
+
+export const immersive = new Immersive()
+
+/* --------------------------------------------------------------------------
+   打字机模式 —— 输入时把光标所在行始终垂直居中于编辑器视口（思源 Neo 同款
+   “打字机”效果）。实现：监听 selectionchange / keyup / 编辑器内点击，取光标
+   所在行的视口矩形，计算其相对滚动容器的偏移，把滚动容器 scrollTop 调到让
+   该行落在容器正中。坐标用视口坐标，与滚动天然对齐。
+   -------------------------------------------------------------------------- */
+class Typewriter {
+  private raf = 0
+  private readonly onEvent = () => this.schedule()
+
+  enable() {
+    if (this.raf) return
+    document.addEventListener("selectionchange", this.onEvent)
+    window.addEventListener("keyup", this.onEvent)
+    // 点击 / 触控定位光标时也居中
+    document.addEventListener("mouseup", this.onEvent)
+    this.schedule()
+  }
+
+  disable() {
+    cancelAnimationFrame(this.raf)
+    document.removeEventListener("selectionchange", this.onEvent)
+    window.removeEventListener("keyup", this.onEvent)
+    document.removeEventListener("mouseup", this.onEvent)
+    this.raf = 0
+  }
+
+  private schedule() {
+    cancelAnimationFrame(this.raf)
+    this.raf = requestAnimationFrame(() => this.center())
+  }
+
+  private center() {
+    const sel = window.getSelection()
+    const active = document.activeElement
+    if (
+      !sel ||
+      sel.rangeCount === 0 ||
+      !(active instanceof HTMLElement) ||
+      !active.isContentEditable
+    ) {
+      return
+    }
+
+    const range = sel.getRangeAt(0)
+    let rect = range.getClientRects()[0]
+    if (!rect || (rect.height === 0 && rect.width === 0)) {
+      const node: Node | null =
+        range.startContainer.nodeType === Node.ELEMENT_NODE
+          ? range.startContainer
+          : range.startContainer.parentElement
+      const block =
+        (node as HTMLElement | null)?.closest?.(".orca-block") ??
+        (active.closest(".orca-block") as HTMLElement | null) ??
+        active
+      rect = block.getBoundingClientRect()
+    }
+    if (!rect || (rect.width === 0 && rect.height === 0)) return
+
+    const scroller = this.getScrollParent(active as HTMLElement)
+    const cRect = scroller.getBoundingClientRect()
+    // 当前行中心相对容器中心的偏移；scrollTop 加上该偏移即把行移到正中
+    const delta = rect.top + rect.height / 2 - (cRect.top + cRect.height / 2)
+    scroller.scrollTop += delta
+  }
+
+  /** 向上找到真正会滚动的祖先容器 */
+  private getScrollParent(el: HTMLElement): HTMLElement {
+    let node: HTMLElement | null = el
+    while (node && node !== document.body) {
+      const cs = getComputedStyle(node)
+      const scrollable =
+        cs.overflowY === "auto" ||
+        cs.overflowY === "scroll" ||
+        cs.overflowY === "overlay"
+      if (scrollable && node.scrollHeight > node.clientHeight + 1) return node
+      node = node.parentElement
+    }
+    return (
+      (document.querySelector(".orca-block-editor") as HTMLElement | null) ??
+      (document.getElementById("main") as HTMLElement | null) ??
+      el
+    )
+  }
+}
+
+export const typewriter = new Typewriter()
+
+/* --------------------------------------------------------------------------
+   打字音 —— 敲击键盘时播放打字机音效。素材取自 GitHub 项目 fgheng/keysound
+   （MIT 许可）的 typewriter-key.wav / typewriter-enter.wav，以 base64 data URI
+   内联在 src/sounds.ts 中（完全离线，无需 file:// 加载）。
+
+   实现：监听 keydown，仅在编辑器（contenteditable）聚焦时发声；Enter 用
+   “回车”音、其余按键用“按键”音，并随机微调音高让连续敲击更自然。
+   关键修正：①用内联 data URI，绕开 webview 对 file:// 媒体的跨域 / 加载限制；
+   ②每次 new 出的 Audio 放进 pool 持有引用，避免被 GC 回收导致播放被掐断
+   （播放结束后从 pool 移除）。每次独立播放，天然支持多键叠音（混音）。
+   -------------------------------------------------------------------------- */
+class TypeSound {
+  private readonly onKey = (e: KeyboardEvent) => this.play(e)
+  /** 持有正在播放的 Audio 引用，防止被垃圾回收中断播放 */
+  private pool: Audio[] = []
+
+  enable() {
+    document.addEventListener("keydown", this.onKey, true)
+  }
+
+  disable() {
+    document.removeEventListener("keydown", this.onKey, true)
+    this.pool = []
+  }
+
+  private play(e: KeyboardEvent) {
+    const active = document.activeElement
+    if (!(active instanceof HTMLElement) || !active.isContentEditable) {
+      return
+    }
+    // 组合键（Ctrl/Cmd/Alt）多为快捷键，不发声
+    if (e.ctrlKey || e.metaKey || e.altKey) return
+
+    const url = e.key === "Enter" ? ENTER_WAV : KEY_WAV
+    const audio = new Audio(url)
+    audio.volume = 0.45
+    audio.playbackRate = 0.95 + Math.random() * 0.1 // 0.95 ~ 1.05 随机音高
+    this.pool.push(audio)
+    audio.addEventListener("ended", () => {
+      audio.removeAttribute("src")
+      const i = this.pool.indexOf(audio)
+      if (i >= 0) this.pool.splice(i, 1)
+    })
+    // 播放失败（极少见）静默忽略
+    audio.play().catch(() => {})
+  }
+}
+
+export const typeSound = new TypeSound()
 
 /** 卸载时清理插件写入的所有 body class 与 CSS 变量 */
 export function cleanupDom() {
