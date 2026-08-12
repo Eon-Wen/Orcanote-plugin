@@ -132,6 +132,10 @@ function apply() {
     )
   } else disableWordCount()
 
+  // 精细迁移引用：反链面板工具条入口按钮（运行时开关，关掉即移除按钮）
+  if (settings.refMigrateEnabled === true) installRefMigrateInjector()
+  else disposeRefMigrateInjector()
+
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
 }
@@ -173,13 +177,13 @@ export async function load() {
   await initTrash()
   installTrashMenuInjector()
 
-  // 精细迁移引用：把「精细迁移引用」按钮注入反链面板工具条（原生渲染无插件贡献点）
-  installRefMigrateInjector()
+  // 精细迁移引用入口注入与开关由 apply() 里的 refMigrateEnabled 控制（运行时可切换）
 
   // 后台全局修复：历史 bug 可能留下悬空 _tags（会让标签选择菜单 yu.map 崩溃）。
   // 修复依赖编辑器面板（setProperties 是编辑器命令），故延迟几秒并带重试：
   // 首次 4s，若仍有未修成的坏块则每 12s 重试，最多 4 次。
   const autoRepair = (attempt: number) => {
+    if (readSettings().refMigrateEnabled !== true) return
     void repairAllDanglingTags().then(() => {
       if (repairIncomplete() && attempt < 4) {
         setTimeout(() => autoRepair(attempt + 1), 12000)
@@ -192,6 +196,10 @@ export async function load() {
   orca.commands.registerCommand(
     `${PLUGIN_NAME}.repairtags`,
     async () => {
+      if (readSettings().refMigrateEnabled !== true) {
+        window.alert("[Neo] 精细迁移引用已关闭，无法使用此功能")
+        return
+      }
       try {
         const n = await repairAllDanglingTags(true)
         if (n < 0) window.alert("[Neo] 悬空标签扫描失败，请查看控制台日志")
@@ -218,6 +226,10 @@ export async function load() {
     `${PLUGIN_NAME}.refmigrate`,
     () => {
       try {
+        if (readSettings().refMigrateEnabled !== true) {
+          window.alert("[Neo] 精细迁移引用已关闭，请在设置中开启")
+          return
+        }
         const id = currentEditorBlockId()
         if (id == null) {
           console.warn("[REFMIGRATE] 命令入口：无法确定当前块")

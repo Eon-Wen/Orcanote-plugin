@@ -218,6 +218,13 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       "回收站中的页面超过该天数自动清除（原块已真删，仅清快照）。默认 30 天。设很大值近似为永久保留，仍可用「清空回收站」手动清除。",
     defaultValue: 30,
   },
+  refMigrateEnabled: {
+    type: "boolean",
+    label: "精细迁移引用",
+    description:
+      "在反链面板工具条加「精细迁移引用」入口：弹窗列出引用当前块的全部条目，可勾选批量迁移到自选目标（目标为标签则转成标签，为页面/块则转成 @引用）。关闭后入口按钮隐藏、相关命令失效。",
+    defaultValue: true,
+  },
   textureOpacity: {
     type: "number",
     label: "纹理强度（乘数）",
