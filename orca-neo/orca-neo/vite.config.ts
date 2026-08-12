@@ -8,8 +8,7 @@ import {
   writeFileSync,
 } from "node:fs"
 import { resolve } from "node:path"
-import { transform } from "esbuild"
-import { defineConfig, type Plugin } from "vite"
+import { transformWithEsbuild, defineConfig, type Plugin } from "vite"
 
 const root = import.meta.dirname
 
@@ -18,7 +17,7 @@ const root = import.meta.dirname
  *  保证构建永不因压缩而中断。 */
 async function minifyCss(content: string): Promise<string> {
   try {
-    const r = await transform(content, { loader: "css", minify: true })
+    const r = await transformWithEsbuild(content, "neo.css", { loader: "css", minify: true })
     return r.code
   } catch {
     return content
