@@ -57,7 +57,27 @@ export interface Orca {
       pluginName: string,
       settings: Record<string, unknown>,
     ): Promise<void>
+    /** SQLite PluginStorage：按插件名 + key 存/取/删小值（适合索引类元数据）。
+     *  value 为任意可序列化对象（内部 JSON）。 */
+    setData(name: string, key: string, value: unknown): Promise<void>
+    getData(name: string, key: string): Promise<unknown>
+    getDataKeys(name: string): Promise<string[]>
+    removeData(name: string, key: string): Promise<void>
+    /** 写插件私有目录文件，无大小限制（适合整页快照）。
+     *  fileName 可含子目录，如 "trash/<repoId>/<pageId>.json"。 */
+    setFile(name: string, fileName: string, content: string): Promise<void>
+    getFile(name: string, fileName: string): Promise<string>
+    listFiles(name: string, folder?: string): Promise<string[]>
+    removeFile(name: string, fileName: string): Promise<void>
+    removeFolder(name: string, folder: string): Promise<void>
   }
+  /** 统一后端 RPC 通道。返回值均为 Promise。
+   *  已知命令（字符串）："delete-blocks"(blockIds:number[])、"get-block"(id)、
+   *  "get-block-tree"(id)、"create-block"(parentId,leftId,repr,content)、
+   *  "set-plugin-file"/"get-plugin-file"/"list-plugin-files"/"remove-plugin-file"/
+   *  "remove-plugin-folder"、"set-plugin-data"/"get-plugin-data" 等。
+   *  命令名取自 app.asar 的 APIMsgs 枚举。 */
+  invokeBackend(msg: string, ...args: any[]): Promise<any>
   commands: {
     registerCommand(
       id: string,

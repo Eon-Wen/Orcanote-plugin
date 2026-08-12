@@ -1036,3 +1036,157 @@ body.neo-frostedglass .neo-wc-popup {
 .neo-wc-days.is-overdue {
   color: #ef4444;
 }
+
+/* ==========================================================================
+   回收站面板（右上角三点菜单里的「回收站」条目 → 浮层面板）
+   ========================================================================== */
+/* 三点菜单里注入的「回收站」条目数量角标 */
+.neo-trash-menu-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  margin-left: 6px;
+  border-radius: 8px;
+  background: var(--neo-primary, #6a85e3);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1;
+  vertical-align: middle;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 居中弹窗遮罩层：点背景关闭 */
+.neo-trash-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.neo-trash-pop {
+  z-index: 2147483000;
+  width: 560px;
+  max-width: calc(100vw - 48px);
+  max-height: 76vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--neo-menu-bg);
+  color: var(--neo-on-background);
+  border: 1px solid var(--neo-border-soft);
+  box-shadow: var(--orca-shadow-menu, 0 12px 40px rgba(0, 0, 0, 0.35));
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.neo-trash-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.neo-trash-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.neo-trash-sort {
+  padding: 4px 10px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 6px;
+  background: var(--neo-surface);
+  color: var(--neo-on-surface);
+  font-size: 12px;
+  font-weight: 400;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.neo-trash-sort:hover {
+  background: var(--neo-hover);
+}
+.neo-trash-close {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 12px;
+}
+.neo-trash-close:hover {
+  opacity: 1;
+}
+.neo-trash-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 40px;
+}
+.neo-trash-empty {
+  padding: 18px 8px;
+  text-align: center;
+  opacity: 0.5;
+}
+.neo-trash-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 8px;
+  border-radius: 8px;
+  border-top: 1px solid var(--neo-border-soft);
+}
+.neo-trash-row:first-child {
+  border-top: none;
+}
+.neo-trash-meta {
+  flex: 1;
+  min-width: 0;
+}
+.neo-trash-title {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.neo-trash-sub {
+  font-size: 12px;
+  opacity: 0.55;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+.neo-trash-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.neo-trash-act {
+  padding: 5px 12px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 6px;
+  background: var(--neo-surface);
+  color: var(--neo-on-surface);
+  font-size: 13px;
+  cursor: pointer;
+}
+.neo-trash-act:hover {
+  background: var(--neo-hover);
+}
+.neo-trash-act:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.neo-trash-act.danger {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+.neo-trash-foot {
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px solid var(--neo-border-soft);
+  text-align: right;
+}

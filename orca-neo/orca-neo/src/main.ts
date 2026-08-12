@@ -16,6 +16,8 @@ import {
 import { startScopeHighlight, stopScopeHighlight } from "./scope"
 import { setColorSidebar, stopColorSidebar } from "./colorSidebar"
 import { renderNeoHeadbar } from "./headbar"
+import { initTrash, disposeTrash } from "./trash"
+import { installTrashMenuInjector, disposeTrashMenuInjector } from "./trashMenuInject"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
 
@@ -160,6 +162,11 @@ export async function load() {
   // 顶部插件栏入口：点开即出可勾选的 Neo 菜单
   orca.headbar.registerHeadbarButton(`${PLUGIN_NAME}.menu`, renderNeoHeadbar)
 
+  // 回收站：安装 delete-blocks 拦截器（真删前先快照进私有存储）；
+  // 入口注入到右上角三点菜单（设置/插件市场/备份/帮助浮层），不放顶栏按钮
+  await initTrash()
+  installTrashMenuInjector()
+
   orca.commands.registerCommand(
     `${PLUGIN_NAME}.reload`,
     () => {
@@ -173,6 +180,8 @@ export async function load() {
 export async function unload() {
   orca.commands.unregisterCommand(`${PLUGIN_NAME}.reload`)
   orca.headbar.unregisterHeadbarButton(`${PLUGIN_NAME}.menu`)
+  disposeTrashMenuInjector()
+  disposeTrash()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)

@@ -204,6 +204,20 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       },
     ]),
   ),
+  trashEnabled: {
+    type: "boolean",
+    label: "回收站",
+    description:
+      "开启后，删除页面会自动存入回收站（普通搜索搜不到），可在顶栏「回收站」入口恢复或彻底删除。关闭则删除直接真删、不进回收站。",
+    defaultValue: true,
+  },
+  trashRetentionDays: {
+    type: "number",
+    label: "回收站保留天数",
+    description:
+      "回收站中的页面超过该天数自动清除（原块已真删，仅清快照）。默认 30 天。设很大值近似为永久保留，仍可用「清空回收站」手动清除。",
+    defaultValue: 30,
+  },
   textureOpacity: {
     type: "number",
     label: "纹理强度（乘数）",
