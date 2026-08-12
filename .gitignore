@@ -1,0 +1,15 @@
+# 依赖
+orca-neo/orca-neo/node_modules/
+
+# 构建产物（可由源码重新构建）
+orca-neo/orca-neo/dist/
+
+# 参考材料（外部仓库快照，含内嵌 .git，不纳入版本管理）
+orca-neo/refs/
+
+# 发布快照（可由 dist 生成）
+orca-neo-release/
+
+# 记忆 / 系统文件
+**/.workbuddy/
+**/.DS_Store

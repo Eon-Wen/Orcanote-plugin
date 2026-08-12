@@ -1,0 +1,523 @@
+/* ==========================================================================
+   Neo Plus for Orca Note
+   移植自 SiYuan 的 Neo-Plus 插件 (https://github.com/QYLexpired/Neo-Plus)
+   每个功能对应 body 上的一个 neo-* 类，由插件根据设置动态开关。
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   毛玻璃 —— 菜单 / 弹层半透明 + 背景模糊
+   注意：只作用于弹层本身（.orca-menu / .orca-popup / .orca-modal-content）。
+   不能给 #headbar / #sidebar / 编辑器工具条加 backdrop-filter，因为它们是
+   顶部菜单等 position:fixed 弹窗的祖先；backdrop-filter 会为其后代创建包含块，
+   导致弹窗定位基准从视口变成该祖先，从而出现“向左上偏移”的 bug。
+   -------------------------------------------------------------------------- */
+body.neo-frostedglass .orca-menu,
+body.neo-frostedglass .orca-popup,
+body.neo-frostedglass .orca-modal-content,
+/* 悬浮面包屑：滚动页面时 sticky 浮在内容最顶端、位于顶部 UI 下方。
+   把原生不透明的 bg-1 背景换成半透明 + 背景模糊，让底下滚动的内容
+   透出毛玻璃质感。它本身是 position:sticky（已是定位元素），其内部的
+   分段菜单本就以它为包含块，故 backdrop-filter 不会像 #headbar 那样
+   造成 fixed 浮窗偏移。 */
+body.neo-frostedglass .orca-scrolling-breadcrumb {
+  background-color: color-mix(in oklch, var(--orca-color-bg-1) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(1.5) brightness(1.05);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5) brightness(1.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  body.neo-frostedglass .orca-menu,
+  body.neo-frostedglass .orca-popup,
+  body.neo-frostedglass .orca-modal-content,
+  body.neo-frostedglass .orca-scrolling-breadcrumb {
+    background-color: color-mix(in oklch, var(--orca-color-bg-1) 72%, transparent);
+    backdrop-filter: blur(20px) saturate(1.5) brightness(0.9);
+    -webkit-backdrop-filter: blur(20px) saturate(1.5) brightness(0.9);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   彩色标题 —— H1..H4 按色相依次旋转
+   -------------------------------------------------------------------------- */
+body.neo-colorful-heading .orca-repr-heading-content[data-level="1"] {
+  color: oklch(from var(--neo-primary) l c h);
+}
+body.neo-colorful-heading .orca-repr-heading-content[data-level="2"] {
+  color: oklch(from var(--neo-primary) l c calc(h + 40));
+}
+body.neo-colorful-heading .orca-repr-heading-content[data-level="3"] {
+  color: oklch(from var(--neo-primary) l c calc(h + 80));
+}
+body.neo-colorful-heading .orca-repr-heading-content[data-level="4"] {
+  color: oklch(from var(--neo-primary) l c calc(h + 120));
+}
+
+/* --------------------------------------------------------------------------
+   彩色列表 —— 颜色落在虎鲸【原生小圆点】上，由 Orca 自己精确摆放，
+   不重画、不自定义定位（之前给自绘的 .orca-repr-main::before 上色会错位）。
+   原生圆点画在 .orca-block-handle:before（块手柄），这里只改它的 color，
+   按嵌套层级做色相旋转。同时隐藏 Neo 自绘 bullet，避免双圆点。
+   -------------------------------------------------------------------------- */
+body.neo-colorful-list .orca-repr-ul > .orca-repr-main::before {
+  display: none !important;
+}
+
+body.neo-colorful-list
+  .orca-repr-ul
+  > .orca-repr-main
+  .orca-block-handle:not(.orca-block-handle-collapsed, [data-icon], :hover):before {
+  color: oklch(from var(--neo-accent) l c h);
+}
+body.neo-colorful-list
+  .orca-repr-ul
+  > .orca-repr-children
+  > .orca-block
+  > .orca-repr-ul
+  > .orca-repr-main
+  .orca-block-handle:not(.orca-block-handle-collapsed, [data-icon], :hover):before {
+  color: oklch(from var(--neo-accent) l c calc(h + 60));
+}
+body.neo-colorful-list
+  .orca-repr-ul
+  > .orca-repr-children
+  > .orca-block
+  > .orca-repr-ul
+  > .orca-repr-children
+  > .orca-block
+  > .orca-repr-ul
+  > .orca-repr-main
+  .orca-block-handle:not(.orca-block-handle-collapsed, [data-icon], :hover):before {
+  color: oklch(from var(--neo-accent) l c calc(h + 120));
+}
+body.neo-colorful-list .orca-repr-ol-content::before {
+  color: oklch(from var(--neo-accent) l c h);
+}
+
+/* --------------------------------------------------------------------------
+   彩色选区 —— 选中文本使用强调色而非灰蓝
+   -------------------------------------------------------------------------- */
+body.neo-colorful-selection ::selection {
+  background-color: oklch(from var(--neo-accent) l c h / 0.3);
+  color: inherit;
+}
+
+body.neo-colorful-selection .orca-block-select-highlight {
+  background-color: oklch(from var(--neo-accent) l c h / 0.18);
+}
+
+/* --------------------------------------------------------------------------
+   列表子弹线：静态常显线直接使用虎鲸原生的父子块参考线
+   （.orca-repr-scope-line，由 Orca 原生绘制，开启本功能时不隐藏），
+   因此这里不再自己画静态线。仅由 src/scope.ts 在【光标所在路径】上
+   叠加一条 .neo-list-hl 活动高亮（Neo 强调色、无辉光、非荧光）。
+   -------------------------------------------------------------------------- */
+
+/* --------------------------------------------------------------------------
+   列表子弹线 · 活动高亮：光标所在路径上叠一条强调色线（参考 better-motion
+   的 scope highlight 技术路线，但以 Neo 配色为主导——强调色描边、无辉光）。
+   -------------------------------------------------------------------------- */
+.neo-list-hl {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 5;
+  /* 注意：不要加 drop-shadow 辉光，否则会呈现荧光/霓虹感。
+     描边直接用 Neo 强调色，实心、无发光。
+     不带入场动画：redraw 每帧都会重建本线段，若带动画会反复重播，
+     在非经典模式下表现为可见闪烁，故移除。 */
+}
+
+.neo-list-hl path {
+  stroke: var(--neo-accent);
+  stroke-width: 2.5;
+  stroke-opacity: 1;
+  paint-order: stroke;
+  fill: none;
+  stroke-linecap: round;
+}
+
+/* 焦点路径上的容器（.neo-list-hl-host）：隐藏其原生父子参考线，
+   避免与我们的高亮线在同一条 x 上重合、糊在一起。
+   仅作用于开启列表参考线时，且用同等重量级选择器压过主题默认色。 */
+body.neo-list-line .orca-block-editor .orca-block .orca-repr .orca-repr-children.neo-list-hl-host .orca-repr-scope-line.orca-repr-scope-line::before,
+body.neo-list-line .orca-block-editor .orca-block .orca-repr .orca-repr-children.neo-list-hl-host .orca-repr-scope-line.orca-repr-scope-line::after {
+  opacity: 0 !important;
+  visibility: hidden !important;
+}
+
+/* --------------------------------------------------------------------------
+   聚焦块指示 —— 当前编辑的块淡淡高亮，其余略降透明度
+   -------------------------------------------------------------------------- */
+body.neo-focus-block .orca-block:has(> .orca-repr > .orca-repr-main :focus) {
+  position: relative;
+}
+
+body.neo-focus-block
+  .orca-block:has(> .orca-repr > .orca-repr-main :focus)
+  > .orca-repr
+  > .orca-repr-main {
+  background-color: oklch(from var(--neo-accent) l c h / 0.06);
+  border-radius: var(--neo-r-sm);
+  box-shadow: -3px 0 0 0 oklch(from var(--neo-accent) l c h / 0.45);
+}
+
+/* --------------------------------------------------------------------------
+   沉浸模式 —— 隐藏非必要 UI，正文居中放宽
+   -------------------------------------------------------------------------- */
+body.neo-immersive #headbar .orca-headbar-global-tools,
+body.neo-immersive #headbar .orca-headbar-user-tools {
+  opacity: 0;
+  transition: opacity var(--neo-transition);
+}
+
+body.neo-immersive #headbar:hover .orca-headbar-global-tools,
+body.neo-immersive #headbar:hover .orca-headbar-user-tools {
+  opacity: 1;
+}
+
+body.neo-immersive .orca-block-editor-sidetools {
+  opacity: 0;
+  transition: opacity var(--neo-transition);
+}
+
+body.neo-immersive .orca-panel:hover .orca-block-editor-sidetools {
+  opacity: 1;
+}
+
+/* --------------------------------------------------------------------------
+   IDE 风格 —— 收紧行高与间距，等宽数字，更紧凑的信息密度
+   -------------------------------------------------------------------------- */
+body.neo-ide {
+  --orca-lineheight-md: 1.5;
+  --orca-lineheight-lg: 1.55;
+  --orca-spacing-md: 0.45rem;
+  --orca-spacing-lg: 0.85rem;
+}
+
+body.neo-ide .orca-block,
+body.neo-ide .orca-repr-main-content {
+  font-variant-numeric: tabular-nums;
+}
+
+body.neo-ide .orca-repr-heading-content {
+  margin-top: 0.8em;
+}
+
+/* --------------------------------------------------------------------------
+   侧栏静音 —— 侧栏降饱和，聚焦正文
+   -------------------------------------------------------------------------- */
+body.neo-sidebar-mute #sidebar {
+  filter: saturate(0.35);
+  transition: filter var(--neo-transition-slow);
+}
+
+body.neo-sidebar-mute #sidebar:hover,
+body.neo-sidebar-mute #sidebar:focus-within {
+  filter: saturate(1);
+}
+
+/* --------------------------------------------------------------------------
+   超级融合 —— 顶栏 / 侧栏 / 正文共用同一底色，去除所有分隔
+   -------------------------------------------------------------------------- */
+body.neo-fusion #sidebar {
+  background-color: var(--neo-background);
+  border-right: none;
+}
+
+body.neo-fusion #headbar,
+body.neo-fusion .orca-panel {
+  background-color: var(--neo-background);
+  border: none;
+  box-shadow: none;
+}
+
+body.neo-fusion .orca-panels-row > .orca-panel:not(:last-child),
+body.neo-fusion .orca-panels-column > .orca-panel:not(:last-child) {
+  border-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   卡片搜索列表 —— 搜索 / 查询结果以卡片呈现
+   -------------------------------------------------------------------------- */
+body.neo-card-list .orca-search-result-item,
+body.neo-card-list .orca-query-result-list-item,
+body.neo-card-list .orca-block-editor-backref-view > .orca-block {
+  background-color: oklch(from var(--neo-surface) l c h / 0.45);
+  outline: 0.5px solid var(--neo-border-soft);
+  outline-offset: -0.5px;
+  border-radius: var(--neo-r-lg);
+  padding: var(--orca-spacing-md) var(--orca-spacing-lg);
+  margin-bottom: var(--orca-spacing-md);
+  transition:
+    background-color var(--neo-transition),
+    translate var(--neo-transition);
+}
+
+body.neo-card-list .orca-search-result-item:hover,
+body.neo-card-list .orca-query-result-list-item:hover {
+  background-color: oklch(from var(--neo-accent) l c h / 0.1);
+  translate: 0 -1px;
+}
+
+/* --------------------------------------------------------------------------
+   垂直页签 —— 面板标签纵向排布
+   -------------------------------------------------------------------------- */
+body.neo-vertical-tabs .orca-block-editor-query-tabs {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--orca-spacing-xs);
+}
+
+body.neo-vertical-tabs .orca-block-editor-query-tabs > * {
+  width: 100%;
+  justify-content: flex-start;
+  border-radius: var(--neo-r-sm);
+}
+
+/* --------------------------------------------------------------------------
+   纹理背景 —— 移植自 Neo-Plus：将纹理叠加在「编辑器画布」上（.orca-panel），
+   而不是全屏覆盖 UI。原版 Neo-Plus 用 position:fixed 全屏 + mix-blend-mode:multiply
+   + 各纹理独立 opacity。这里改为挂在编辑器面板上的 ::after，既保证纹理落在正文
+   区域，又避免被编辑器不透明背景遮挡。
+   混合方式：亮色用 multiply（压暗出纸感），暗色用 screen（提亮出颗粒），明暗均可见。
+   -------------------------------------------------------------------------- */
+body.neo-texture .orca-panel {
+  position: relative;
+  isolation: isolate;
+}
+
+body.neo-texture .orca-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--neo-texture-image, none);
+  background-color: var(--neo-background);
+  background-repeat: repeat;
+  background-size: auto;
+  mix-blend-mode: multiply;
+  opacity: var(--neo-texture-opacity, 0.4);
+}
+
+@media (prefers-color-scheme: dark) {
+  body.neo-texture .orca-panel::after {
+    mix-blend-mode: screen;
+    background-color: var(--neo-background);
+  }
+}
+
+/* 具体纹理图由 textures.css 按 body.neo-texture-<名称> 类提供 --neo-texture-image */
+
+/* 自定义背景图（插件写入 --neo-bg-image） */
+body.neo-custom-bg #main,
+body.neo-custom-bg .orca-panels-container {
+  background-image: var(--neo-bg-image);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* --------------------------------------------------------------------------
+   侧栏彩色条目（收藏 / 页面 / 标签 下的块）
+   颜色由 colorSidebar.ts 按文档顺序写入 --neo-item-color（莫兰迪色）。
+   外观刻意做成「均匀纯色」，不再使用从左到右由深变浅的渐变。
+   放在 neo-plus.css：重载插件即生效，无需重启 Orca（避开 neo.css 被缓存的坑）。
+   -------------------------------------------------------------------------- */
+#sidebar .neo-cwrap {
+  background-color: color-mix(in srgb, var(--neo-item-color) 24%, transparent) !important;
+  backdrop-filter: blur(6px) saturate(1.2);
+  margin-bottom: 4px;
+}
+
+#sidebar .neo-citem {
+  color: var(--neo-item-color) !important;
+  border-radius: var(--neo-r-sm);
+  margin-bottom: 3px;
+}
+
+#sidebar .neo-citem:hover {
+  background-color: color-mix(in srgb, var(--neo-item-color) 44%, transparent) !important;
+}
+
+#sidebar .neo-ccal {
+  border-radius: var(--neo-r-sm);
+}
+
+/* --------------------------------------------------------------------------
+   侧栏大框（滚动容器）& 搜索框外壳 跟随 Neo 配色
+   需求：
+   1. 搜索框外壳（.orca-tags-list-filter / .orca-aliased-filter）跟随侧栏
+      大框（滚动容器 .orca-sidebar-tabs）颜色——都用 --orca-color-bg-1；
+   2. 搜索框本体（.orca-input-input）和实际输入元素（.orca-input-actualinput）
+      跟随 Neo 主题色（--neo-primary 色相）变化。
+   为什么要放在 neo-plus.css 而非 neo.css：
+   neo.css 由 Orca 按主题名缓存，点「重载插件」不会刷新它；neo-plus.css 由
+   插件以带缓存戳的 <link> 注入，重载插件即生效，无需重启 Orca。
+   关键坑：原生 #sidebar 规则局部覆盖了 --orca-color-bg-1（固定灰色），
+   Neo 在 :root 上的 !important 声明只影响 <html> 的 computed value，
+   无法穿透 #sidebar 的直接声明（直接声明总是覆盖继承值，无论 !important）。
+   因此必须在 #sidebar 上重新声明 !important 才能让侧栏内部跟随 Neo 主题。
+
+   侧栏搜索框 DOM 结构（Tags / Pages 视图）：
+     .orca-tags-list (或 .orca-aliased)              ← 视图容器
+       .orca-input.orca-tags-list-filter              ← 搜索框外壳（<span>）
+         .orca-input-input                            ← 搜索框本体（背景/边框/圆角）
+           i.orca-input-pre                           ← 搜索图标
+           input.orca-input-actualinput               ← 实际 <input> 元素
+           i.orca-input-post                          ← 刷新/清除图标
+   -------------------------------------------------------------------------- */
+
+/* 覆盖 #sidebar 上原生的 --orca-color-bg-1 等局部变量，
+   使侧栏内部所有使用这些变量的元素跟随 Neo 主题 */
+#sidebar {
+  --orca-color-bg-1: var(--neo-background) !important;
+  --orca-color-text-1: var(--neo-on-background) !important;
+  --orca-color-border: var(--neo-border) !important;
+  --orca-border-general: 1px solid var(--neo-border-soft) !important;
+}
+
+.orca-sidebar-tabs,
+.orca-sidebar-tab-options {
+  background-color: var(--orca-color-bg-1) !important;
+}
+
+/* 搜索框 —— 完全由 Neo 主题调控
+   外壳 = --neo-background（与侧栏滚动大框同色）
+   本体 = --neo-surface（Neo 表面色，与外壳区分）
+   实际输入 = 透明，透出本体色 */
+#sidebar .orca-tags-list-filter,
+#sidebar .orca-aliased-filter {
+  background-color: var(--neo-background) !important;
+  border-radius: var(--neo-r-sm);
+  transition: background-color var(--neo-transition);
+}
+
+#sidebar .orca-tags-list-filter .orca-input-input,
+#sidebar .orca-aliased-filter .orca-input-input {
+  background-color: var(--neo-surface) !important;
+  border-color: var(--neo-border) !important;
+  transition:
+    background-color var(--neo-transition),
+    border-color var(--neo-transition);
+}
+
+#sidebar .orca-tags-list-filter .orca-input-actualinput,
+#sidebar .orca-aliased-filter .orca-input-actualinput {
+  background-color: transparent !important;
+  color: var(--neo-on-surface) !important;
+}
+
+/* 底部新建页面输入框 —— 跟随侧栏大框颜色 */
+#sidebar .orca-input-box {
+  background-color: var(--orca-color-bg-1) !important;
+  border: none;
+  outline: 0.5px solid var(--neo-border-soft);
+  outline-offset: -0.5px;
+  border-radius: var(--neo-r-sm);
+  transition: background-color var(--neo-transition);
+}
+
+body.neo-custom-bg .orca-panel {
+  background-color: oklch(from var(--neo-background) l c h / var(--neo-bg-veil, 0.86));
+  backdrop-filter: blur(2px);
+}
+
+/* --------------------------------------------------------------------------
+   卷轴效果 —— 正文顶部/底部渐隐，模拟纸卷
+   -------------------------------------------------------------------------- */
+body.neo-scroll-fade .orca-block-editor-blocks {
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black 28px,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    black 28px,
+    black calc(100% - 28px),
+    transparent 100%
+  );
+}
+
+/* --------------------------------------------------------------------------
+   平滑光标 —— 由插件注入 .neo-caret 元素，此处只负责外观与动画
+   -------------------------------------------------------------------------- */
+body.neo-smooth-caret .neo-caret {
+  position: fixed;
+  z-index: 9999;
+  width: 2px;
+  border-radius: 2px;
+  background-color: var(--neo-accent);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    top 0.11s var(--neo-ease-out-3),
+    left 0.11s var(--neo-ease-out-3),
+    height 0.11s var(--neo-ease-out-3),
+    opacity 0.15s linear;
+  will-change: top, left, height;
+}
+
+body.neo-smooth-caret .neo-caret.neo-caret-visible {
+  opacity: 1;
+  animation: neo-caret-blink 1.15s var(--neo-ease-inout-1) infinite;
+}
+
+body.neo-smooth-caret .neo-caret.neo-caret-moving {
+  animation: none;
+}
+
+@keyframes neo-caret-blink {
+  0%,
+  45% {
+    opacity: 1;
+  }
+  55%,
+  100% {
+    opacity: 0.15;
+  }
+}
+
+/* 原生光标隐藏（仅在平滑光标开启时） */
+body.neo-smooth-caret .orca-block-editor [contenteditable="true"] {
+  caret-color: transparent;
+}
+
+/* --------------------------------------------------------------------------
+   高对比 —— 提升正文与背景的明度差
+   -------------------------------------------------------------------------- */
+body.neo-high-contrast {
+  --neo-x-on-background: oklch(from var(--neo-d-on-background) calc(l * 0.72) c h);
+  --neo-x-on-surface: oklch(
+    from var(--neo-d-on-background) calc(l * 0.82) c h / 0.85
+  );
+}
+
+@media (prefers-color-scheme: dark) {
+  body.neo-high-contrast {
+    --neo-x-on-background: oklch(
+      from var(--neo-d-on-background) min(1, calc(l * 1.06)) c h
+    );
+    --neo-x-on-surface: oklch(
+      from var(--neo-d-on-background) min(1, calc(l * 0.98)) c h / 0.9
+    );
+  }
+}
+
+/* --------------------------------------------------------------------------
+   动画总开关 —— 关闭时移除所有过渡与动画
+   -------------------------------------------------------------------------- */
+body.neo-no-animation *,
+body.neo-no-animation *::before,
+body.neo-no-animation *::after {
+  transition: none !important;
+  animation: none !important;
+}
