@@ -113,7 +113,10 @@ function NeoMenu() {
   function update(patch: Settings) {
     const next = { ...readCurrent(), ...patch }
     setSettings(next)
-    void orca.plugins.setSettings(null, PLUGIN_NAME, next)
+    // 注意：repo 维度用字面量 "repo"。用 null 只会更新内存 state、不持久化，
+    // 重启后 Orca 从磁盘加载的是 repo 维度配置，导致顶栏菜单的选择"丢失"。
+    // 与 Orca 设置面板（setSettings("repo", ...)）保持一致，才能真正落盘。
+    void orca.plugins.setSettings("repo", PLUGIN_NAME, next)
   }
 
   function toggle(key: string) {

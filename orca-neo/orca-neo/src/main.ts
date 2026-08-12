@@ -83,7 +83,7 @@ async function refreshPaletteSchema() {
   const cur = orca.state.plugins[PLUGIN_NAME]?.settings?.palette
   if (typeof cur === "string" && cur !== "custom" && !values.includes(cur)) {
     await orca.plugins.setSettings(
-      null,
+      "repo",
       PLUGIN_NAME,
       { ...readSettings(), palette: "default" },
     )
