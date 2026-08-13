@@ -784,6 +784,35 @@ body:not(.neo-colorful-list)
   box-shadow: none;
 }
 
+/* 侧栏列表条目的图标底图（.orca-*-icon 及 emoji/cube/font/hash 变体）：
+   虎鲸原生用 --orca-color-gray-7 作底，而 Neo 把 gray 色阶改成了从
+   --neo-on-background 派生 —— 浅色模式下文字色是深色，图标底就带深色相、
+   观感发深。改为「surface 混入少量文字色」的中性灰：浅色模式得到比侧栏底
+   略深的浅灰，深色模式得到略浅的深灰，明暗自动适配、无色相污染。
+   hover 时加深一档（16%），保留交互反馈。 */
+#sidebar .orca-fav-item-icon,
+#sidebar .orca-fav-item-icon-cube,
+#sidebar .orca-fav-item-icon-font,
+#sidebar .orca-aliased-block-icon,
+#sidebar .orca-aliased-block-icon-cube,
+#sidebar .orca-aliased-block-icon-emoji,
+#sidebar .orca-tags-tag-icon,
+#sidebar .orca-tags-tag-icon-emoji,
+#sidebar .orca-tags-tag-icon-hash {
+  background-color: color-mix(in srgb, var(--neo-on-background) 10%, var(--neo-surface));
+}
+#sidebar .orca-fav-item-item:hover .orca-fav-item-icon,
+#sidebar .orca-fav-item-item:hover .orca-fav-item-icon-cube,
+#sidebar .orca-fav-item-item:hover .orca-fav-item-icon-font,
+#sidebar .orca-aliased-block-item:hover .orca-aliased-block-icon,
+#sidebar .orca-aliased-block-item:hover .orca-aliased-block-icon-cube,
+#sidebar .orca-aliased-block-item:hover .orca-aliased-block-icon-emoji,
+#sidebar .orca-tags-tag-item:hover .orca-tags-tag-icon,
+#sidebar .orca-tags-tag-item:hover .orca-tags-tag-icon-emoji,
+#sidebar .orca-tags-tag-item:hover .orca-tags-tag-icon-hash {
+  background-color: color-mix(in srgb, var(--neo-on-background) 16%, var(--neo-surface));
+}
+
 /* 彩色侧栏（colorSidebar.ts 写入 --neo-item-color 并加类）：
    仅当「彩色文档树」开关开启（body.neo-colorful-doctree）时才生效；
    关闭时以下所有规则不命中，侧栏页面块恢复跟随 Neo 主题配色。
