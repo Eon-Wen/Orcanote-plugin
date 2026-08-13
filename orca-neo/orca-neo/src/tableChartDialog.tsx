@@ -12,7 +12,12 @@ import {
   type ChartModel,
   type TableData,
 } from "./tableChart"
-import { setChartOfBlock, type ChartConfig } from "./chartEmbed"
+import {
+  insertChartBlock,
+  setChartOfBlock,
+  updateChartOfBlock,
+  type ChartConfig,
+} from "./chartBlock"
 
 let React: any
 let ReactDOM: any
@@ -144,15 +149,28 @@ function ChartDialog({
     img.src = url
   }
 
-  /** 插入到笔记：写 _chart 属性（内嵌图表），成功后关闭。 */
+  /** 插入/更新到笔记：生成图片块写到表格下方（图表真块化），成功后关闭。 */
   const onInsert = async () => {
     if (yIdxs.length === 0) return
-    await setChartOfBlock(tableId, {
+    const cfg = {
       type,
       xIdx,
       yIdxs: type === "pie" ? yIdxs.slice(0, 1) : yIdxs,
       title: title.trim(),
-    })
+    }
+    if (initial) {
+      // 更新已有图表：删旧块 + 插新块
+      await updateChartOfBlock(tableId, cfg)
+    } else {
+      const r = await insertChartBlock(tableId, cfg)
+      if (r) {
+        await setChartOfBlock(tableId, {
+          ...cfg,
+          chartBlockId: r.chartBlockId,
+          src: r.src,
+        })
+      }
+    }
     onClose()
   }
 
@@ -233,7 +251,7 @@ function ChartDialog({
                   导出 PNG
                 </button>
                 <button className="neo-chart-btn primary" onClick={onInsert} disabled={yIdxs.length === 0}>
-                  插入到笔记
+                  {initial ? "更新图表" : "插入到笔记"}
                 </button>
                 <button className="neo-chart-btn" onClick={onClose}>
                   关闭

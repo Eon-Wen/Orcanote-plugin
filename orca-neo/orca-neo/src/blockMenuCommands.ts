@@ -19,7 +19,7 @@ import {
 } from "./listView"
 import { isTableBlock, nearestTableBlockId } from "./tableChart"
 import { openTableChartDialog } from "./tableChartDialog"
-import { chartOfBlock, removeChartOfBlock } from "./chartEmbed"
+import { chartOfBlock, cleanupOrphanChartBlocks, removeChartOfBlock } from "./chartBlock"
 
 let React: any = null
 function getReact(): any {
@@ -292,6 +292,9 @@ export function installBlockMenuCommands() {
   } catch (e) {
     console.warn("[NEO] 注册数据图表块菜单命令失败", e)
   }
+
+  // 一次性清理早期 bug 产生的孤儿图表块（幂等，删完即空）
+  void cleanupOrphanChartBlocks()
 }
 
 export function disposeBlockMenuCommands() {

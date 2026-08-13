@@ -242,7 +242,7 @@ function renderYGrid(maxV: number, pct: boolean, svg: string, text: string): str
 function renderBar(m: ChartModel): string {
   const allPct = m.series.every((s) => s.percent)
   const maxV = niceMax(Math.max(...m.series.flatMap((s) => s.data), 1))
-  let svg = `<svg class="neo-chart-svg" viewBox="0 0 ${VIEW_W} ${VIEW_H}" xmlns="http://www.w3.org/2000/svg" role="img">`
+  let svg = `<svg class="neo-chart-svg" width="720" height="420" viewBox="0 0 ${VIEW_W} ${VIEW_H}" xmlns="http://www.w3.org/2000/svg" role="img">`
   svg = renderHead(m, svg)
   svg = renderYGrid(maxV, allPct, svg, m.text)
 
@@ -279,7 +279,7 @@ function renderBar(m: ChartModel): string {
 function renderLine(m: ChartModel): string {
   const allPct = m.series.every((s) => s.percent)
   const maxV = niceMax(Math.max(...m.series.flatMap((s) => s.data), 1))
-  let svg = `<svg class="neo-chart-svg" viewBox="0 0 ${VIEW_W} ${VIEW_H}" xmlns="http://www.w3.org/2000/svg" role="img">`
+  let svg = `<svg class="neo-chart-svg" width="720" height="420" viewBox="0 0 ${VIEW_W} ${VIEW_H}" xmlns="http://www.w3.org/2000/svg" role="img">`
   svg = renderHead(m, svg)
   svg = renderYGrid(maxV, allPct, svg, m.text)
 
@@ -317,7 +317,7 @@ function renderPie(m: ChartModel): string {
   const r = 140
   const total = s.data.reduce((a, b) => a + Math.max(b, 0), 0)
 
-  let svg = `<svg class="neo-chart-svg" viewBox="0 0 ${VIEW_W} ${VIEW_H}" xmlns="http://www.w3.org/2000/svg" role="img">`
+  let svg = `<svg class="neo-chart-svg" width="720" height="420" viewBox="0 0 ${VIEW_W} ${VIEW_H}" xmlns="http://www.w3.org/2000/svg" role="img">`
   svg += `<text x="${VIEW_W / 2}" y="16" text-anchor="middle" font-size="15" font-weight="600" fill="${esc(m.text)}">${esc(m.title)}</text>`
   svg += `<text x="${cx}" y="${cy - 4}" text-anchor="middle" font-size="11" fill="${esc(m.text)}" opacity="0.7">${esc(short(s.name, 20))}</text>`
 

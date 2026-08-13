@@ -34,7 +34,6 @@ import {
 } from "./pageBatchInclude"
 import { installListView, disposeListView } from "./listView"
 import { installBlockMenuCommands, disposeBlockMenuCommands } from "./blockMenuCommands"
-import { installChartEmbed, disposeChartEmbed } from "./chartEmbed"
 import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
@@ -169,14 +168,9 @@ function apply() {
     disposeListView()
   }
 
-  // 表格转统计图（运行时开关）：内嵌图表渲染（入口在块菜单「插件命令」分组）
-  if (settings.chartEnabled === true) {
-    installChartEmbed()
-  } else {
-    disposeChartEmbed()
-  }
-
   // 块菜单命令：两个功能共用的原生入口（render 里按各开关过滤）
+  // 表格转统计图（chartEnabled）只有菜单入口——图表本身是真块（图片块），
+  // 无需观察器/注入渲染（旧 chartEmbed 注入方案已废弃）
   if (settings.listViewEnabled === true || settings.chartEnabled === true) {
     installBlockMenuCommands()
   } else {
@@ -308,7 +302,6 @@ export async function unload() {
   disposePageBatchSelect()
   disposeListView()
   disposeBlockMenuCommands()
-  disposeChartEmbed()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)
