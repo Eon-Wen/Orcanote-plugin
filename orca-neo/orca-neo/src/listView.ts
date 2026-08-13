@@ -219,129 +219,6 @@ export function forceHorizontalText(): void {
   })
 }
 
-/** 诊断：打印表格单元格的 computed style 与 DOM 结构（控制台执行 __lvDebug()）。 */
-export function debugTable(): void {
-  const roots = document.querySelectorAll(`[${ATTR}="table"]`)
-  console.log("[LISTVIEW] debug 表格块数:", roots.length)
-  roots.forEach((root, ri) => {
-    const cells = root.querySelectorAll(".orca-repr-main")
-    cells.forEach((cell, ci) => {
-      if (ci > 4) return
-      const el = cell as HTMLElement
-      const cs = getComputedStyle(el)
-      console.log(`[LISTVIEW] 块${ri} 格${ci} <${el.tagName.toLowerCase()} class="${el.className}">`, {
-        writingMode: cs.writingMode,
-        direction: cs.direction,
-        display: cs.display,
-        flexDirection: cs.flexDirection,
-        transform: cs.transform,
-        fontFamily: cs.fontFamily,
-        inlineStyle: el.getAttribute("style"),
-        innerHTML: el.innerHTML.slice(0, 300),
-      })
-    })
-  })
-}
-
-/** 自动诊断：把渲染信息写入块属性 _lv_debug，落库后可由开发者直接读取（节流 15s）。 */
-export async function autoDiagnose(): Promise<void> {
-  const root = document.querySelector(`[${ATTR}="table"]`) as HTMLElement | null
-  if (!root) return
-  const rootCs = getComputedStyle(root)
-  const rows: Record<string, unknown> = {
-    root: {
-      tag: root.tagName.toLowerCase(),
-      cls: root.className,
-      writingMode: rootCs.writingMode,
-      direction: rootCs.direction,
-      display: rootCs.display,
-      fontFamily: rootCs.fontFamily,
-      forcedInline: root.style.writingMode || "(无)",
-    },
-    cells: [] as Record<string, unknown>[],
-  }
-  root.querySelectorAll(".orca-repr-main").forEach((cell, ci) => {
-    if (ci > 19) return
-    const el = cell as HTMLElement
-    const cs = getComputedStyle(el)
-    const inner = el.querySelector(".orca-repr-main-content") as HTMLElement | null
-    const ics = inner ? getComputedStyle(inner) : null
-    const span = inner?.querySelector("span.orca-inline") as HTMLElement | null
-    const scs = span ? getComputedStyle(span) : null
-    rows.cells.push({
-      tag: el.tagName.toLowerCase(),
-      cls: el.className,
-      w: cs.width,
-      h: cs.height,
-      writingMode: cs.writingMode,
-      direction: cs.direction,
-      display: cs.display,
-      flexDirection: cs.flexDirection,
-      fontSize: cs.fontSize,
-      lineHeight: cs.lineHeight,
-      whiteSpace: cs.whiteSpace,
-      wordBreak: cs.wordBreak,
-      transform: cs.transform !== "none" ? cs.transform : "",
-      forcedInline: el.style.writingMode || "(无)",
-      inner: inner
-        ? {
-            tag: inner.tagName.toLowerCase(),
-            cls: inner.className,
-            writingMode: ics?.writingMode,
-            display: ics?.display,
-            w: ics?.width,
-            h: ics?.height,
-            widthProp: ics?.width,
-            maxWidth: ics?.maxWidth,
-            boxSizing: ics?.boxSizing,
-            textWrap: ics?.textWrap,
-            textWrapStyle: ics?.textWrapStyle,
-            whiteSpace: ics?.whiteSpace,
-            spanW: scs?.width,
-            spanH: scs?.height,
-            spanWhiteSpace: scs?.whiteSpace,
-            spanWordBreak: scs?.wordBreak,
-            innerStyleAttr: inner.getAttribute("style"),
-            spanStyleAttr: span?.getAttribute("style"),
-            html: inner.innerHTML.slice(0, 200),
-          }
-        : "(无 .orca-repr-main-content)",
-      cellStyleAttr: el.getAttribute("style"),
-      cellPadding: `${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}`,
-      cellChildren: Array.from(el.children).map((ch) => {
-        const h = ch as HTMLElement
-        const chs = getComputedStyle(h)
-        return `${h.tagName.toLowerCase()}.${h.className} ${chs.width}x${chs.height} disp=${chs.display}`
-      }),
-      parentReprW: (el.parentElement ? getComputedStyle(el.parentElement).width : ""),
-      parentBlockW: (el.parentElement?.parentElement ? getComputedStyle(el.parentElement.parentElement).width : ""),
-    })
-  })
-  const report = JSON.stringify(rows)
-  console.log("[LISTVIEW] 自动诊断:", report)
-  const id = Number(root.getAttribute("data-id"))
-  if (!Number.isFinite(id)) return
-  try {
-    await orca().commands.invokeEditorCommand(
-      "core.editor.setProperties",
-      null,
-      [id],
-      [{ name: "_lv_debug", type: 1, value: report }],
-    )
-  } catch (e) {
-    console.warn("[LISTVIEW] 写 _lv_debug 失败", e)
-  }
-}
-
-let _lastDiagnose = 0
-function throttledDiagnose() {
-  if (!document.querySelector(`[${ATTR}="table"]`)) return
-  const now = Date.now()
-  if (now - _lastDiagnose < 15000) return
-  _lastDiagnose = now
-  void autoDiagnose()
-}
-
 // ── 观察与重应用 ──
 let _observer: MutationObserver | null = null
 let _debounce: ReturnType<typeof setTimeout> | null = null
@@ -356,7 +233,6 @@ function scheduleReapply() {
     })
     void applyViews()
     forceHorizontalText()
-    throttledDiagnose()
   }, 200)
 }
 
@@ -366,9 +242,6 @@ export function installListView() {
   _observer.observe(document.body, { childList: true, subtree: true })
   document.addEventListener("keydown", onFullscreenKey)
   void applyViews()
-  // 控制台调试入口：__lvDebug() 看单元格 computed 结构，__lvForce() 手动再强制一次横排
-  ;(window as unknown as Record<string, unknown>).__lvDebug = debugTable
-  ;(window as unknown as Record<string, unknown>).__lvForce = forceHorizontalText
 }
 
 export function disposeListView() {
