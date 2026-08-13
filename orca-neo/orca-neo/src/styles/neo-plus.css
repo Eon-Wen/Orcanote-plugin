@@ -153,6 +153,73 @@ body.neo-colorful-list .orca-repr-ol-content::before {
   color: oklch(from var(--neo-accent) l c h);
 }
 
+/* 彩色列表 · 列表开头块文字上色（参照 Neo-Plus coloredlists，按 eon 的判定标准）：
+   判断标准——①该块是无序列表（data-type=ul）②它上面的块（父级）不是无序列表
+   → 它是「一整个无序列表的开头」，它自身的文字上色；同级的其它列表开头块同样
+   按「8 项一轮、45° 色相步进」各自上色（nth-child 取它在同级中的序号）。
+   色相取自强调色、色度固定 0.13（比 Neo-Plus 的 0.08 略深，按 eon 观感微调）、
+   亮度随强调色；列表的子块文字不染
+   （子级圆点仍按上面的层级配色）。
+   ⚠️ 色相偏移必须写成无单位 calc(h + 45)（与彩色标题同款）：虎鲸内核解析
+   calc(h + 45deg) 这类带单位通道偏移会失败，整条声明被丢弃 → 只有第一条
+   （纯 h）生效，表现为「只有页面第一个无序列表有颜色」。 */
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 1)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 h);
+}
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 2)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 calc(h + 45));
+}
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 3)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 calc(h + 90));
+}
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 4)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 calc(h + 135));
+}
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 5)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 calc(h + 180));
+}
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 6)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 calc(h + 225));
+}
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 7)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 calc(h + 270));
+}
+body.neo-colorful-list
+  .orca-block[data-type="ul"]:not(.orca-block[data-type="ul"] .orca-block[data-type="ul"]):nth-child(8n + 8)
+  > .orca-repr
+  > .orca-repr-main
+  > .orca-repr-main-content {
+  color: oklch(from var(--neo-accent) l 0.13 calc(h + 315));
+}
+
 /* --------------------------------------------------------------------------
    列表子弹线：静态常显线直接使用虎鲸原生的父子块参考线
    （.orca-repr-scope-line，由 Orca 原生绘制，开启本功能时不隐藏），
