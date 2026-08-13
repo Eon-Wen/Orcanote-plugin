@@ -225,16 +225,33 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       "在反链面板工具条加「精细迁移引用」入口：弹窗列出引用当前块的全部条目，可勾选批量迁移到自选目标（目标为标签则转成标签，为页面/块则转成 @引用）。关闭后入口按钮隐藏、相关命令失效。",
     defaultValue: true,
   },
-  pageSortMode: {
+  pageSortModePages: {
     type: "singleChoice",
-    label: "页面排序",
+    label: "页面排序方式",
     description:
-      "侧边栏「页面」列表的排序方式（展示层排序，不改数据库）。「手动拖拽」模式下拖动条目调整顺序，自动保存、重启保留。",
+      "侧边栏「页面」列表的排序方式（展示层排序，不改数据库；与标签列表互不影响）。「手动拖拽」模式下拖动条目调整顺序，自动保存、重启保留；切到其他排序再切回手动时恢复上次的手动顺序。",
     defaultValue: "default",
     choices: [
       { label: "默认（拼音/层级）", value: "default" },
-      { label: "创建时间", value: "created" },
-      { label: "修改时间", value: "modified" },
+      { label: "创建时间 ↑（正序）", value: "created" },
+      { label: "创建时间 ↓（倒序）", value: "createdDesc" },
+      { label: "修改时间 ↑（正序）", value: "modified" },
+      { label: "修改时间 ↓（倒序）", value: "modifiedDesc" },
+      { label: "手动拖拽", value: "manual" },
+    ],
+  },
+  pageSortModeTags: {
+    type: "singleChoice",
+    label: "标签排序方式",
+    description:
+      "侧边栏「标签」列表的排序方式（展示层排序，不改数据库；与页面列表互不影响）。「手动拖拽」模式下拖动条目调整顺序，自动保存、重启保留；切到其他排序再切回手动时恢复上次的手动顺序。",
+    defaultValue: "default",
+    choices: [
+      { label: "默认（拼音/层级）", value: "default" },
+      { label: "创建时间 ↑（正序）", value: "created" },
+      { label: "创建时间 ↓（倒序）", value: "createdDesc" },
+      { label: "修改时间 ↑（正序）", value: "modified" },
+      { label: "修改时间 ↓（倒序）", value: "modifiedDesc" },
       { label: "手动拖拽", value: "manual" },
     ],
   },

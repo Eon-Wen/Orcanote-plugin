@@ -13,7 +13,13 @@
 // 实现：对每个列表的顶层容器与嵌套子层容器，按其直接子块排序后重排 DOM；MutationObserver 防
 // React 重渲染覆盖；手动顺序持久化到插件文件 pages-sort/<repo>.json（repo 维度，重启保留）。
 
-export type PageSortMode = "default" | "created" | "modified" | "manual"
+export type PageSortMode =
+  | "default"
+  | "created"
+  | "createdDesc"
+  | "modified"
+  | "modifiedDesc"
+  | "manual"
 
 let _orca: any = null
 function orca(): any {
@@ -76,9 +82,22 @@ const PLUGIN = "orca-neo"
 function settings(): Record<string, any> {
   return orca().state.plugins?.[PLUGIN]?.settings ?? {}
 }
-export function currentSortMode(): PageSortMode {
-  const m = settings().pageSortMode
-  return m === "created" || m === "modified" || m === "manual" ? m : "default"
+
+/** 当前排序模式（页面/标签各自独立：pageSortModePages / pageSortModeTags，
+    旧版共享的 pageSortMode 作回退）。 */
+export function currentSortMode(specId?: "pages" | "tags"): PageSortMode {
+  const s = settings()
+  let m: unknown
+  if (specId === "pages") m = s.pageSortModePages ?? s.pageSortMode
+  else if (specId === "tags") m = s.pageSortModeTags ?? s.pageSortMode
+  else m = s.pageSortMode
+  return m === "created" ||
+    m === "createdDesc" ||
+    m === "modified" ||
+    m === "modifiedDesc" ||
+    m === "manual"
+    ? (m as PageSortMode)
+    : "default"
 }
 
 function manualFileName(): string {
@@ -152,14 +171,16 @@ function blockKeyOf(spec: SortListSpec, key: string): any {
 function desiredOrder(spec: SortListSpec, mode: PageSortMode): string[] {
   const native = _nativeOrders[spec.id] ?? []
   if (mode === "default") return native
-  // created/modified：按块时间升序，缺数据按原生序排后
+  // created/createdDesc/modified/modifiedDesc：按块时间排序（正序/倒序），缺数据按原生序排后
+  const field = mode === "created" || mode === "createdDesc" ? "created" : "modified"
+  const desc = mode === "createdDesc" || mode === "modifiedDesc"
   const idx = new Map(native.map((n, i) => [n, i]))
   return native.slice().sort((a, b) => {
-    const ta = blockKeyOf(spec, a)?.[mode === "created" ? "created" : "modified"]
-    const tb = blockKeyOf(spec, b)?.[mode === "created" ? "created" : "modified"]
+    const ta = blockKeyOf(spec, a)?.[field]
+    const tb = blockKeyOf(spec, b)?.[field]
     const ka = ta instanceof Date ? ta.getTime() : Number.MAX_SAFE_INTEGER
     const kb = tb instanceof Date ? tb.getTime() : Number.MAX_SAFE_INTEGER
-    if (ka !== kb) return ka - kb
+    if (ka !== kb) return desc ? kb - ka : ka - kb
     return (idx.get(a) ?? 0) - (idx.get(b) ?? 0)
   })
 }
@@ -207,23 +228,46 @@ function applySortToList(spec: SortListSpec, mode: PageSortMode) {
   })
 }
 
-function applyAllSorts(mode: PageSortMode) {
+function applyAllSorts() {
   for (const spec of LISTS) {
-    applySortToList(spec, mode)
+    const mode = currentSortMode(spec.id)
+    if (mode !== "default") applySortToList(spec, mode)
   }
 }
 
-/** 把某容器当前 DOM 顺序持久化到手动顺序。 */
-async function persistContainerOrder(spec: SortListSpec, container: HTMLElement) {
+/** 把某容器当前 DOM 顺序写入手动顺序（返回是否有变化）。 */
+function persistContainerOrderInto(spec: SortListSpec, container: HTMLElement): boolean {
   const keys = directItems(spec, container).map((el) => itemKeyOf(spec, el))
   const parentKey = containerParentKey(spec, container)
   const m = (_manual[spec.id] ??= {})
+  const target = parentKey == null ? (m.roots ??= []) : ((m.children ??= {})[parentKey] ??= [])
+  if (target.length === keys.length && target.every((k, i) => k === keys[i])) return false
   if (parentKey == null) m.roots = keys
-  else {
-    if (!m.children) m.children = {}
-    m.children[parentKey] = keys
-  }
-  await saveManualOrders()
+  else m.children![parentKey] = keys
+  return true
+}
+
+/** 把某列表所有容器的当前 DOM 顺序快照进手动记忆（返回是否有变化）。 */
+function snapshotListOrders(spec: SortListSpec): boolean {
+  let changed = false
+  document.querySelectorAll(spec.rootSel).forEach((root) => {
+    root.querySelectorAll(spec.listSel).forEach((list) => {
+      if (persistContainerOrderInto(spec, list as HTMLElement)) changed = true
+    })
+    if (spec.nested) {
+      root.querySelectorAll(spec.wrapSel).forEach((wrap) => {
+        const el = wrap as HTMLElement
+        if (el.querySelector(`:scope > ${spec.wrapSel}`)) {
+          if (persistContainerOrderInto(spec, el)) changed = true
+        }
+      })
+    }
+  })
+  return changed
+}
+
+async function persistContainerOrder(spec: SortListSpec, container: HTMLElement) {
+  if (persistContainerOrderInto(spec, container)) await saveManualOrders()
 }
 
 // ── 手动拖拽（document 捕获阶段；页面/标签拦截原生 include-in 拖拽） ──
@@ -249,9 +293,9 @@ function specOfItem(target: EventTarget | null): { spec: SortListSpec; wrap: HTM
 }
 
 function onDragStartCapture(e: DragEvent) {
-  if (currentSortMode() !== "manual") return
   const hit = specOfItem(e.target)
   if (!hit) return
+  if (currentSortMode(hit.spec.id) !== "manual") return
   _dragSpec = hit.spec
   _dragContainer = hit.wrap.parentElement
   _dragKey = itemKeyOf(hit.spec, hit.wrap)
@@ -259,7 +303,7 @@ function onDragStartCapture(e: DragEvent) {
 }
 
 function onDragOverCapture(e: DragEvent) {
-  if (currentSortMode() !== "manual" || _dragSpec == null) return
+  if (_dragSpec == null) return
   const hit = specOfItem(e.target)
   if (!hit || hit.spec !== _dragSpec) return
   if (hit.wrap.parentElement !== _dragContainer) return
@@ -271,7 +315,7 @@ function onDragOverCapture(e: DragEvent) {
 }
 
 function onDropCapture(e: DragEvent) {
-  if (currentSortMode() !== "manual" || _dragSpec == null) return
+  if (_dragSpec == null) return
   e.preventDefault()
   e.stopPropagation()
   const hit = specOfItem(e.target)
@@ -301,27 +345,47 @@ function anyRootPresent(): boolean {
   return LISTS.some((s) => document.querySelector(s.rootSel))
 }
 
+/** 是否还有列表处于非默认排序（两个列表都默认则无需干预）。 */
+function anyNonDefaultMode(): boolean {
+  return LISTS.some((s) => currentSortMode(s.id) !== "default")
+}
+
 function scheduleReapply() {
   if (_debounce) clearTimeout(_debounce)
   _debounce = setTimeout(() => {
     _debounce = null
-    const mode = currentSortMode()
-    if (mode === "default") return // 原生序无需干预
+    if (!anyNonDefaultMode()) return
     if (!anyRootPresent()) return
-    applyAllSorts(mode)
+    applyAllSorts()
   }, 250)
 }
+
+// 上次应用的模式（用于检测「离开手动」时快照手动顺序）
+const _prevModes: Record<string, PageSortMode> = { pages: "default", tags: "default" }
 
 /** 应用当前排序模式（设置变更时由 main.ts apply() 调用）。 */
 export async function applyPageSort(): Promise<void> {
   try {
     await loadManualOrders()
-    await refreshPageData()
   } catch (e) {
     console.warn("[PAGESORT] 初始化失败", e)
   }
-  const mode = currentSortMode()
-  if (mode !== "default") applyAllSorts(mode)
+  let dirty = false
+  for (const spec of LISTS) {
+    const mode = currentSortMode(spec.id)
+    const prev = _prevModes[spec.id] ?? "default"
+    if (prev === "manual" && mode !== "manual") {
+      // 离开手动：把当前（手动）顺序快照下来，保证转回手动时顺序不变
+      if (snapshotListOrders(spec)) dirty = true
+    } else if (mode === "manual" && !_manual[spec.id]) {
+      // 首次进入手动：以当前顺序为手动基线
+      if (snapshotListOrders(spec)) dirty = true
+    }
+    _prevModes[spec.id] = mode
+  }
+  if (dirty) await saveManualOrders()
+  await refreshPageData()
+  applyAllSorts()
 }
 
 /** 安装观察器与拖拽监听（load 时调用一次）。 */
