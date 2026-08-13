@@ -554,9 +554,11 @@ body {
   scale: none !important;
 }
 
-/* bullet 本体：绝对定位于行首，可自由控制形状与旋转 */
+/* bullet 本体（已停用：eon 决定统一用原生小圆点，两处 display:none 已隐藏）。
+   注意：这里【不能】给 .orca-repr-main 加 position:relative——它会劫持原生
+   .orca-repr-scope-line 的定位参照（原本锚定在 .orca-block 上，线高正常；
+   锚到单行 main 上会塌成 0 高，层级线消失）。只保留变量定义。 */
 .orca-repr-ul > .orca-repr-main {
-  position: relative;
   --neo-bullet-size: 0.34em;
   --neo-bullet-radius: 1px;
   --neo-bullet-rotate: 0deg;
@@ -1299,6 +1301,20 @@ input.orca-input:focus {
 .orca-block.orca-block-selected > .orca-repr > .orca-repr-main {
   background-color: oklch(from var(--neo-accent) l c h / 0.12);
   border-radius: var(--neo-r-sm);
+}
+
+/* 列表参考线：开启功能（body.neo-list-line）时解除虎鲸对原生父子参考线的默认
+   隐藏（.orca-repr-scope-line 原生 display:none!important），让无序/有序/任务
+   列表的静态层级线常显（本插件不重画静态线，只由 scope.ts 在光标路径上叠活动
+   高亮）。注意长文根块（.orca-long-form[data-indent=0]）与引用块的线保持隐藏。
+   另外：原生线的描边变量 --orca-border-scope 从未被定义（原生只在
+   orca-active-parent 链上定义它，而那条选择器链路与真实 DOM 不符、永不命中），
+   这里补定义，否则即使解除隐藏也画不出线。 */
+body.neo-list-line .orca-repr-ul .orca-repr-scope-line,
+body.neo-list-line .orca-repr-ol .orca-repr-scope-line,
+body.neo-list-line .orca-repr-task .orca-repr-scope-line {
+  display: block !important;
+  --orca-border-scope: 1px solid var(--orca-color-scope-line, var(--neo-border-soft));
 }
 
 .orca-repr-scope-line {
