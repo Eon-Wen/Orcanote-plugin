@@ -2,8 +2,8 @@
 // 挂 body 的独立 React 根（参照 trashHeadbar.tsx）：遮罩点击 / Esc / ✕ 关闭。
 // 图表配置交互移植自 famotime/siyuan-table-master：X 列下拉、Y 列多选（饼图单选）、
 // 变更即刷新预览。图表为自绘 SVG（零依赖，见 tableChart.ts 说明），直接以字符串
-// 写入预览容器；导出 PNG 走 SVG → canvas → toDataURL。图表只活在弹窗里、不注入
-// 文档 DOM，天然规避 React 抹节点问题；每次打开都实时读表格，数据永远最新。
+// 写入预览容器；导出 PNG 走 SVG → canvas → toDataURL。
+// 「插入到笔记」：把当前配置写进表格块 _chart 属性（内嵌渲染见 chartEmbed.ts）。
 import {
   buildChartModel,
   readTableData,
@@ -12,6 +12,7 @@ import {
   type ChartModel,
   type TableData,
 } from "./tableChart"
+import { setChartOfBlock, type ChartConfig } from "./chartEmbed"
 
 let React: any
 let ReactDOM: any
@@ -29,24 +30,34 @@ const CHART_TYPES: { value: ChartType; label: string }[] = [
   { value: "pie", label: "饼图" },
 ]
 
-function ChartDialog({ tableId, onClose }: { tableId: number; onClose: () => void }) {
+function ChartDialog({
+  tableId,
+  initial,
+  onClose,
+}: {
+  tableId: number
+  initial: ChartConfig | null
+  onClose: () => void
+}) {
   const [data, setData] = React.useState<TableData | null>(null)
   const [error, setError] = React.useState("")
-  const [title, setTitle] = React.useState("")
-  const [type, setType] = React.useState<ChartType>("bar")
-  const [xIdx, setXIdx] = React.useState(0)
-  const [yIdxs, setYIdxs] = React.useState<number[]>([])
+  const [title, setTitle] = React.useState(initial?.title ?? "")
+  const [type, setType] = React.useState<ChartType>(initial?.type ?? "bar")
+  const [xIdx, setXIdx] = React.useState(initial?.xIdx ?? 0)
+  const [yIdxs, setYIdxs] = React.useState<number[]>(initial?.yIdxs ?? [])
   const previewRef = React.useRef<HTMLDivElement | null>(null)
 
-  // 读表格数据（挂载时一次；弹窗方案每次打开都反映当前表格内容）
+  // 读表格数据（挂载时一次；每次打开都反映当前表格内容）
   React.useEffect(() => {
     let alive = true
     readTableData(tableId)
       .then((d) => {
         if (!alive) return
         setData(d)
-        // 默认 X=第 0 列、Y=第 1 列（与参考插件一致）
-        setYIdxs(d.headers.length > 1 ? [1] : [0])
+        // 无 initial（新建图表）时：默认 X=第 0 列、Y=第 1 列（与参考插件一致）
+        if (!initial) {
+          setYIdxs(d.headers.length > 1 ? [1] : [0])
+        }
       })
       .catch((e: any) => {
         if (alive) setError(String(e?.message ?? e))
@@ -54,7 +65,7 @@ function ChartDialog({ tableId, onClose }: { tableId: number; onClose: () => voi
     return () => {
       alive = false
     }
-  }, [tableId])
+  }, [tableId, initial])
 
   // Esc 关闭
   React.useEffect(() => {
@@ -133,6 +144,18 @@ function ChartDialog({ tableId, onClose }: { tableId: number; onClose: () => voi
     img.src = url
   }
 
+  /** 插入到笔记：写 _chart 属性（内嵌图表），成功后关闭。 */
+  const onInsert = async () => {
+    if (yIdxs.length === 0) return
+    await setChartOfBlock(tableId, {
+      type,
+      xIdx,
+      yIdxs: type === "pie" ? yIdxs.slice(0, 1) : yIdxs,
+      title: title.trim(),
+    })
+    onClose()
+  }
+
   return (
     <div className="neo-chart-backdrop" onMouseDown={onClose}>
       <div className="neo-chart-pop" onMouseDown={(e: any) => e.stopPropagation()}>
@@ -209,7 +232,10 @@ function ChartDialog({ tableId, onClose }: { tableId: number; onClose: () => voi
                 <button className="neo-chart-btn" onClick={onExport} disabled={yIdxs.length === 0}>
                   导出 PNG
                 </button>
-                <button className="neo-chart-btn primary" onClick={onClose}>
+                <button className="neo-chart-btn primary" onClick={onInsert} disabled={yIdxs.length === 0}>
+                  插入到笔记
+                </button>
+                <button className="neo-chart-btn" onClick={onClose}>
                   关闭
                 </button>
               </div>
@@ -225,8 +251,8 @@ function ChartDialog({ tableId, onClose }: { tableId: number; onClose: () => voi
   )
 }
 
-/** 打开表格转统计图弹窗。 */
-export function openTableChartDialog(tableId: number): void {
+/** 打开表格转统计图弹窗。initial 非空 = 更新已有图表（预填配置）。 */
+export function openTableChartDialog(tableId: number, initial: ChartConfig | null = null): void {
   ensureGlobals()
   const host = document.createElement("div")
   document.body.appendChild(host)
@@ -246,7 +272,7 @@ export function openTableChartDialog(tableId: number): void {
   }
 
   try {
-    const el = React.createElement(ChartDialog, { tableId, onClose: close })
+    const el = React.createElement(ChartDialog, { tableId, initial, onClose: close })
     if (typeof ReactDOM.createRoot === "function") {
       modernRoot = ReactDOM.createRoot(host)
       modernRoot.render(el)

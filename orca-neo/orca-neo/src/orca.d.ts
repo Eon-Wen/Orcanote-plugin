@@ -87,6 +87,19 @@ export interface Orca {
     unregisterCommand(id: string): void
     invokeCommand(id: string, ...args: any[]): Promise<any>
   }
+  /** 块右键菜单「插件命令」分组命令（app.asar 逆向确认）：
+   *  render(blockId, ctxId, close) 返回 React 元素或 null（null=该块不显示）。
+   *  重复注册同 id 会抛 AlreadyRegistered，注册前需先 unregister。 */
+  blockMenuCommands: {
+    registerBlockMenuCommand(
+      id: string,
+      cmd: {
+        worksOnMultipleBlocks: boolean
+        render: (blockId: number, ctxId: number, close: () => void) => any
+      },
+    ): void
+    unregisterBlockMenuCommand(id: string): void
+  }
   headbar: {
     registerHeadbarButton(id: string, render: () => any): void
     unregisterHeadbarButton(id: string): void

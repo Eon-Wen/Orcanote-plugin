@@ -2043,3 +2043,34 @@ body.neo-frostedglass .neo-wc-popup {
 .neo-chart-svg .neo-chart-dot:hover {
   opacity: 0.7;
 }
+
+/* 表格转统计图 · 内嵌图表容器：表格块正下方的卡片（SVG 内容由 chartEmbed.ts
+   注入维护，React 抹掉后观察器会补回）。 */
+.neo-chart-embed {
+  margin: 8px 0;
+  padding: 10px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 10px;
+  background: var(--neo-surface, transparent);
+  overflow: hidden;
+}
+
+/* 块菜单「插件命令」分组的 Neo 命令：手风琴头（点击展开）+ 细分子条目。
+   条目复用虎鲸原生 orca-menu-text 结构，仅做缩进与箭头。 */
+.neo-cmd-item {
+  position: relative;
+}
+.neo-cmd-arrow {
+  margin-left: auto;
+  font-size: 10px;
+  opacity: 0.6;
+}
+.neo-cmd-sub {
+  padding-left: 6px;
+}
+.neo-cmd-subitem .orca-menu-text-text {
+  padding-left: 6px;
+}
+.neo-cmd-danger .orca-menu-text-text {
+  color: #e05a5a;
+}

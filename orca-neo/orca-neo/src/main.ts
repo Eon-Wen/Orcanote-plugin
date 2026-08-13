@@ -34,7 +34,8 @@ import {
 } from "./pageBatchInclude"
 import { installListView, disposeListView } from "./listView"
 import { installListViewMenu, disposeListViewMenu } from "./listViewMenu"
-import { installTableChartMenu, disposeTableChartMenu } from "./tableChartMenu"
+import { installBlockMenuCommands, disposeBlockMenuCommands } from "./blockMenuCommands"
+import { installChartEmbed, disposeChartEmbed } from "./chartEmbed"
 import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
@@ -162,7 +163,7 @@ function apply() {
   if (settings.pageBatchEnabled === true) installPageBatchSelect()
   else disposePageBatchSelect()
 
-  // 列表视图（运行时开关）
+  // 列表视图（运行时开关）：展示层转换 + 右键菜单直接注入入口（待 eon 新方案）
   if (settings.listViewEnabled === true) {
     installListView()
     installListViewMenu()
@@ -171,9 +172,14 @@ function apply() {
     disposeListViewMenu()
   }
 
-  // 表格转统计图（运行时开关）
-  if (settings.chartEnabled === true) installTableChartMenu()
-  else disposeTableChartMenu()
+  // 表格转统计图（运行时开关）：内嵌图表渲染 + 块菜单「插件命令」入口
+  if (settings.chartEnabled === true) {
+    installChartEmbed()
+    installBlockMenuCommands()
+  } else {
+    disposeChartEmbed()
+    disposeBlockMenuCommands()
+  }
 
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
@@ -300,7 +306,8 @@ export async function unload() {
   disposePageBatchSelect()
   disposeListView()
   disposeListViewMenu()
-  disposeTableChartMenu()
+  disposeBlockMenuCommands()
+  disposeChartEmbed()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)

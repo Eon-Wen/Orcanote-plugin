@@ -280,7 +280,7 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
     type: "boolean",
     label: "表格转统计图",
     description:
-      "右键表格块或点块手柄菜单出现「数据图表」，可把表格数据生成柱状图/折线图/饼图（弹窗实时预览，可导出 PNG）。",
+      "右键表格块或点块手柄菜单出现「数据图表」，可把表格数据生成柱状图/折线图/饼图：弹窗实时预览、可导出 PNG，也可插入笔记（图表内嵌在表格下方、跟随文档、表格数据变化自动更新）。",
     defaultValue: true,
   },
   textureOpacity: {
