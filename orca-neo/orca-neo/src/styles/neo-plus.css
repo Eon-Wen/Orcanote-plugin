@@ -1870,3 +1870,176 @@ body.neo-frostedglass .neo-wc-popup {
   padding: 24px !important;
   margin: 0 !important;
 }
+
+/* --------------------------------------------------------------------------
+   表格转统计图弹窗（.neo-chart-*）：居中大弹窗，左表单右实时图表预览。
+   复用回收站弹窗的遮罩层级（z-index 2147482999/3000）与 Neo 主题变量。
+   按钮/输入框必须显式 font:inherit（原生控件不继承字体，虎鲸铁律）。
+   -------------------------------------------------------------------------- */
+.neo-chart-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147482999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.neo-chart-pop {
+  z-index: 2147483000;
+  width: 900px;
+  max-width: calc(100vw - 48px);
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 14px;
+  background: var(--neo-menu-bg);
+  color: var(--neo-on-background);
+  border: 1px solid var(--neo-border-soft);
+  box-shadow: var(--orca-shadow-menu, 0 12px 40px rgba(0, 0, 0, 0.35));
+  font-family: var(--orca-fontfamily-ui, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.neo-chart-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px 12px;
+  font-size: 16px;
+  font-weight: 600;
+}
+.neo-chart-close {
+  cursor: pointer;
+  opacity: 0.6;
+  font-size: 12px;
+}
+.neo-chart-close:hover {
+  opacity: 1;
+}
+.neo-chart-body {
+  display: flex;
+  gap: 16px;
+  min-height: 0;
+}
+.neo-chart-form {
+  width: 260px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+.neo-chart-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.neo-chart-label {
+  font-size: 12px;
+  color: var(--neo-on-surface);
+}
+.neo-chart-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 6px;
+  background: var(--neo-surface);
+  color: var(--neo-on-surface);
+  font: inherit;
+}
+.neo-chart-ycols {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 170px;
+  overflow-y: auto;
+  padding: 4px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 6px;
+}
+.neo-chart-ycol {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.neo-chart-ycol:hover {
+  background: var(--neo-hover);
+}
+.neo-chart-preview {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.neo-chart-canvas {
+  flex: 1;
+  min-height: 420px;
+}
+.neo-chart-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+.neo-chart-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 6px;
+  background: var(--neo-surface);
+  color: var(--neo-on-surface);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.neo-chart-btn:hover {
+  background: var(--neo-hover);
+}
+.neo-chart-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.neo-chart-btn.primary {
+  background: var(--neo-accent, #4f7cff);
+  border-color: transparent;
+  color: #fff;
+}
+.neo-chart-error,
+.neo-chart-loading {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--neo-on-surface);
+}
+.neo-chart-error {
+  color: #e05a5a;
+}
+
+/* 表格转统计图 · 自绘 SVG 图表：预览区自适应宽度，交互仅用 opacity（沿用虎鲸
+   的 CSS 坑教训：hover/active 反馈不用 scale/filter/transform）。 */
+.neo-chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.neo-chart-svg .neo-chart-bar,
+.neo-chart-svg .neo-chart-slice,
+.neo-chart-svg .neo-chart-dot {
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.neo-chart-svg .neo-chart-bar:hover,
+.neo-chart-svg .neo-chart-slice:hover {
+  opacity: 0.78;
+}
+.neo-chart-svg .neo-chart-dot:hover {
+  opacity: 0.7;
+}

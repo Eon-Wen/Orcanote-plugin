@@ -34,6 +34,7 @@ import {
 } from "./pageBatchInclude"
 import { installListView, disposeListView } from "./listView"
 import { installListViewMenu, disposeListViewMenu } from "./listViewMenu"
+import { installTableChartMenu, disposeTableChartMenu } from "./tableChartMenu"
 import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
@@ -170,6 +171,10 @@ function apply() {
     disposeListViewMenu()
   }
 
+  // 表格转统计图（运行时开关）
+  if (settings.chartEnabled === true) installTableChartMenu()
+  else disposeTableChartMenu()
+
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
 }
@@ -295,6 +300,7 @@ export async function unload() {
   disposePageBatchSelect()
   disposeListView()
   disposeListViewMenu()
+  disposeTableChartMenu()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)

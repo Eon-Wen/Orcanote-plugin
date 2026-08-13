@@ -276,6 +276,13 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       "右键列表块或点击块手柄菜单出现「列表视图…」，可把无序/有序/任务列表切换为脑图、看板、表格、时间轴、页签（纯展示层转换，数据不动，随时切回列表）。",
     defaultValue: true,
   },
+  chartEnabled: {
+    type: "boolean",
+    label: "表格转统计图",
+    description:
+      "右键表格块或点块手柄菜单出现「数据图表」，可把表格数据生成柱状图/折线图/饼图（弹窗实时预览，可导出 PNG）。",
+    defaultValue: true,
+  },
   textureOpacity: {
     type: "number",
     label: "纹理强度（乘数）",
