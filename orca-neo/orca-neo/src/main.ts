@@ -33,7 +33,6 @@ import {
   disposePageBatchSelect,
 } from "./pageBatchInclude"
 import { installListView, disposeListView } from "./listView"
-import { installListViewMenu, disposeListViewMenu } from "./listViewMenu"
 import { installBlockMenuCommands, disposeBlockMenuCommands } from "./blockMenuCommands"
 import { installChartEmbed, disposeChartEmbed } from "./chartEmbed"
 import { openRefMigrateDialog } from "./refMigrateDialog"
@@ -163,21 +162,24 @@ function apply() {
   if (settings.pageBatchEnabled === true) installPageBatchSelect()
   else disposePageBatchSelect()
 
-  // 列表视图（运行时开关）：展示层转换 + 右键菜单直接注入入口（待 eon 新方案）
+  // 列表视图（运行时开关）：展示层转换逻辑（入口在块菜单「插件命令」分组）
   if (settings.listViewEnabled === true) {
     installListView()
-    installListViewMenu()
   } else {
     disposeListView()
-    disposeListViewMenu()
   }
 
-  // 表格转统计图（运行时开关）：内嵌图表渲染 + 块菜单「插件命令」入口
+  // 表格转统计图（运行时开关）：内嵌图表渲染（入口在块菜单「插件命令」分组）
   if (settings.chartEnabled === true) {
     installChartEmbed()
-    installBlockMenuCommands()
   } else {
     disposeChartEmbed()
+  }
+
+  // 块菜单命令：两个功能共用的原生入口（render 里按各开关过滤）
+  if (settings.listViewEnabled === true || settings.chartEnabled === true) {
+    installBlockMenuCommands()
+  } else {
     disposeBlockMenuCommands()
   }
 
@@ -305,7 +307,6 @@ export async function unload() {
   disposePageSort()
   disposePageBatchSelect()
   disposeListView()
-  disposeListViewMenu()
   disposeBlockMenuCommands()
   disposeChartEmbed()
   unsubscribe?.()

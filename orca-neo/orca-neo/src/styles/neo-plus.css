@@ -2074,3 +2074,25 @@ body.neo-frostedglass .neo-wc-popup {
 .neo-cmd-danger .orca-menu-text-text {
   color: #e05a5a;
 }
+
+/* 块菜单列表视图命令的菜单内嵌缩放条 */
+.neo-cmd-zoomrow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px 4px 14px;
+}
+.neo-cmd-zb-num {
+  width: 56px;
+  padding: 2px 4px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 4px;
+  background: var(--neo-surface);
+  color: var(--neo-on-surface);
+  font: inherit;
+  font-size: 12px;
+}
+.neo-cmd-zb-range {
+  flex: 1;
+  min-width: 0;
+}

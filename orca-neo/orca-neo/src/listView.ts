@@ -153,6 +153,13 @@ export function toggleFullscreen(blockId: number) {
   }
   exitFullscreen()
   _fullscreenId = blockId
+  // 全屏看表格时自动收起侧栏（日历/收藏/标签栏），给表格最大宽度；
+  // core.closeSidebar 内部自带 SidebarOpened 判断，重复调用无害
+  try {
+    void orca().commands.invokeCommand("core.closeSidebar")
+  } catch {
+    /* ignore */
+  }
   // 避开页签条：全屏上边界 = 页签条底边（无页签条则为 0）
   const bar = document.querySelector(".neo-tabbar") as HTMLElement | null
   const top = bar && bar.getBoundingClientRect().height > 0 ? bar.getBoundingClientRect().bottom : 0
