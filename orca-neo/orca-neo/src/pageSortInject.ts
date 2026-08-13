@@ -100,6 +100,34 @@ function onBodyChange() {
   }, 150)
 }
 
+/** 解析 computed color（rgb()/rgba()/color(srgb ...)），返回 [r,g,b,a]（0-1）。 */
+function parseColor(s: string): [number, number, number, number] | null {
+  if (!s) return null
+  let m = s.match(/rgba?\(\s*([\d.]+)\s*[, ]\s*([\d.]+)\s*[, ]\s*([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?\s*\)/)
+  if (m) {
+    const a = m[4] == null ? 1 : m[4].endsWith("%") ? parseFloat(m[4]) / 100 : parseFloat(m[4])
+    return [parseFloat(m[1]) / 255, parseFloat(m[2]) / 255, parseFloat(m[3]) / 255, a]
+  }
+  m = s.match(/color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s*\/\s*([\d.]+%?))?\)/)
+  if (m) {
+    const a = m[4] == null ? 1 : m[4].endsWith("%") ? parseFloat(m[4]) / 100 : parseFloat(m[4])
+    return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]), a]
+  }
+  return null
+}
+
+/** alpha 合成：半透明色叠在不透明底上 → 视觉等价的实色（rgb 字符串）。 */
+function compositeOver(
+  fg: [number, number, number, number],
+  bg: [number, number, number],
+): string {
+  const a = fg[3]
+  const r = fg[0] * a + bg[0] * (1 - a)
+  const g = fg[1] * a + bg[1] * (1 - a)
+  const b = fg[2] * a + bg[2] * (1 - a)
+  return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`
+}
+
 function openMenu(anchor: HTMLElement, id: "pages" | "tags") {
   ensureGlobals()
   _closeMenu?.()
@@ -129,11 +157,43 @@ function openMenu(anchor: HTMLElement, id: "pages" | "tags") {
   }
   _closeMenu = close
 
+  // 浮窗与侧边栏对齐：宽度 = 侧边栏宽、位置对齐侧边栏左缘。
+  // 背景色 = 侧边栏【实际视觉色】压实版：侧边栏背景是半透明叠色表达式，
+  // 直接拿来当浮窗背景会成透明板 → 与 body 底色做 alpha 合成得到不透明实色，
+  // 深浅模式自动一致；文字色取侧边栏实际渲染色。
+  const sidebar = document.querySelector("#sidebar") as HTMLElement | null
+  const sbRect = sidebar?.getBoundingClientRect()
+  const sbCs = sidebar ? getComputedStyle(sidebar) : null
+  const menuStyle: Record<string, string | number> = {
+    position: "fixed",
+    top: rect.bottom + 4,
+    left: sbRect ? sbRect.left : rect.left,
+    width: sbRect ? sbRect.width : 240,
+  }
+  if (sbCs) {
+    const fg = parseColor(sbCs.backgroundColor)
+    if (fg) {
+      if (fg[3] < 1) {
+        const base = parseColor(getComputedStyle(document.body).backgroundColor)
+        menuStyle.backgroundColor = base
+          ? compositeOver(fg, base)
+          : compositeOver(fg, [1, 1, 1]) // 无底色可读时叠白兜底
+      } else {
+        menuStyle.backgroundColor = `rgb(${Math.round(fg[0] * 255)}, ${Math.round(fg[1] * 255)}, ${Math.round(fg[2] * 255)})`
+      }
+    } else {
+      menuStyle.backgroundColor = sbCs.backgroundColor
+    }
+    // 文字色：白天固定黑（#1f2329，与最初版一致）；深色模式跟随侧边栏浅色文字
+    const isDark = orca?.state?.themeMode === "dark"
+    menuStyle.color = isDark && sbCs ? sbCs.color : "#1f2329"
+  }
+
   const menu = React.createElement(
     "div",
     {
       className: "neo-pagesort-menu",
-      style: { position: "fixed", top: rect.bottom + 4, left: rect.left, minWidth: rect.width },
+      style: menuStyle,
       onMouseDown: (e: any) => e.stopPropagation(),
     },
     MODES.map((m) =>
