@@ -145,8 +145,19 @@ function apply() {
   if (settings.refMigrateEnabled === true) installRefMigrateInjector()
   else disposeRefMigrateInjector()
 
-  // 侧边栏页面排序：按 pageSortMode 应用展示层排序（默认模式为原生序，无需干预）
-  void applyPageSort()
+  // 侧边栏页面排序：下拉注入 + 观察器/拖拽（运行时开关）
+  if (settings.pageSortEnabled === true) {
+    installPageSortInjector()
+    installPageSort()
+    void applyPageSort()
+  } else {
+    disposePageSortInjector()
+    disposePageSort()
+  }
+
+  // 侧边栏多选批量改「包含于」（运行时开关）
+  if (settings.pageBatchEnabled === true) installPageBatchSelect()
+  else disposePageBatchSelect()
 
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
@@ -189,13 +200,7 @@ export async function load() {
   await initTrash()
   installTrashMenuInjector()
 
-  // 侧边栏页面排序：注入排序下拉 + 观察器/拖拽监听（apply() 按 pageSortMode 重排）
-  installPageSortInjector()
-  installPageSort()
-
-  // 侧边栏页面多选（Cmd/Ctrl+点击）→ 批量改变「包含于」页面
-  installPageBatchSelect()
-
+  // 侧边栏页面排序 / 多选批量包含：开关与安装由 apply() 控制（运行时可切换）
   // 精细迁移引用入口注入与开关由 apply() 里的 refMigrateEnabled 控制（运行时可切换）
 
   // 后台全局修复：历史 bug 可能留下悬空 _tags（会让标签选择菜单 yu.map 崩溃）。

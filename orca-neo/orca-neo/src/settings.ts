@@ -238,6 +238,20 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       { label: "手动拖拽", value: "manual" },
     ],
   },
+  pageSortEnabled: {
+    type: "boolean",
+    label: "页面排序功能",
+    description:
+      "在侧边栏「页面/标签」列表顶部显示排序下拉（默认拼音 / 创建时间 / 修改时间 / 手动拖拽）。关闭后下拉隐藏、排序恢复原生顺序。",
+    defaultValue: true,
+  },
+  pageBatchEnabled: {
+    type: "boolean",
+    label: "页面多选批量包含",
+    description:
+      "按住 Cmd/Ctrl 点击侧边栏页面/标签/收藏条目可多选，通过操作条批量改变「包含于」页面或移到顶层。关闭后多选与操作条不再出现。",
+    defaultValue: true,
+  },
   textureOpacity: {
     type: "number",
     label: "纹理强度（乘数）",
