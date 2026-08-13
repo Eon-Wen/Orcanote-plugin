@@ -273,7 +273,7 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
     type: "boolean",
     label: "列表视图",
     description:
-      "右键列表块或点击块手柄菜单出现「列表视图…」，可把无序/有序/任务列表切换为脑图、看板、表格、时间轴、页签（纯展示层转换，数据不动，随时切回列表）。",
+      "右键列表块 → 菜单「插件命令」→「列表视图」，可把顶层无序/有序/任务列表切换为表格视图（纯展示层转换，数据不动，随时切回列表），支持缩放、全屏。",
     defaultValue: true,
   },
   chartEnabled: {
