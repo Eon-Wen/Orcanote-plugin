@@ -32,6 +32,8 @@ import {
   installPageBatchSelect,
   disposePageBatchSelect,
 } from "./pageBatchInclude"
+import { installListView, disposeListView } from "./listView"
+import { installListViewMenu, disposeListViewMenu } from "./listViewMenu"
 import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
@@ -159,6 +161,15 @@ function apply() {
   if (settings.pageBatchEnabled === true) installPageBatchSelect()
   else disposePageBatchSelect()
 
+  // 列表视图（运行时开关）
+  if (settings.listViewEnabled === true) {
+    installListView()
+    installListViewMenu()
+  } else {
+    disposeListView()
+    disposeListViewMenu()
+  }
+
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
 }
@@ -282,6 +293,8 @@ export async function unload() {
   disposePageSortInjector()
   disposePageSort()
   disposePageBatchSelect()
+  disposeListView()
+  disposeListViewMenu()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)

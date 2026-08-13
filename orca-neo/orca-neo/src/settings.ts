@@ -252,6 +252,13 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       "按住 Cmd/Ctrl 点击侧边栏页面/标签/收藏条目可多选，通过操作条批量改变「包含于」页面或移到顶层。关闭后多选与操作条不再出现。",
     defaultValue: true,
   },
+  listViewEnabled: {
+    type: "boolean",
+    label: "列表视图",
+    description:
+      "右键列表块或点击块手柄菜单出现「列表视图…」，可把无序/有序/任务列表切换为脑图、看板、表格、时间轴、页签（纯展示层转换，数据不动，随时切回列表）。",
+    defaultValue: true,
+  },
   textureOpacity: {
     type: "number",
     label: "纹理强度（乘数）",

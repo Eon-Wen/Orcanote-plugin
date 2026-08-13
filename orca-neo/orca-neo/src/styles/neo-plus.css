@@ -1567,3 +1567,239 @@ body.neo-frostedglass .neo-wc-popup {
 .neo-refmig-input {
   font-family: var(--orca-fontfamily-ui, inherit);
 }
+
+/* --------------------------------------------------------------------------
+   列表视图 · 表格（data-neo-lv="table"）
+   参考思源 QYL-ListView 的纯 CSS 技术路线：给列表块打 data-neo-lv="table"，
+   由 CSS 把列表重排为网格表格，不注入 DOM、不改动数据。每个列表项是一行，
+   其子项在右侧嵌套成子表。线条采用 border-collapse 单线原则：整表外框一条
+   border、行分隔线 border-top（首行无）、列分隔线 border-left，任何线只画一次。
+   DOM：.orca-block[data-neo-lv=table] > .orca-repr(.orca-repr-ul)
+        > .orca-repr-main(可选表头) + .orca-repr-children(项容器=网格行)
+        > .orca-block(项) > .orca-repr > .orca-repr-main(单元格) + .orca-repr-children(嵌套子表)
+   -------------------------------------------------------------------------- */
+/* 隐藏原生列表符号（ul/ol 的 ::before 圆点/数字） */
+[data-neo-lv] .orca-repr-ul > .orca-repr-main::before,
+[data-neo-lv] .orca-repr-ol > .orca-repr-main::before {
+  display: none !important;
+}
+
+/* 表格：根容器（无任何颜色渲染，仅中性灰边框）。
+   尺寸 = 第一版表格的虎鲸原生尺度（240px 格 / 24px 行高 / 2px 8px 内边距）。
+   教训：单元格必须用显式 width 钳制 intrinsic 宽度——max-width 挡不住
+   flex-basis:auto 的 max-content 贡献，文字会被按单行全文宽度撑爆整表 */
+[data-neo-lv="table"] {
+  padding: 10px;
+  overflow-x: auto;
+  --_tb-border: rgba(127, 127, 127, 0.5);
+}
+/* 根容器 = 横向 flex：根文字格子在最左，整个树由此向右发散。
+   整表外框只在最外层 repr 画一次（border-collapse 单线原则：每根线只画一次，
+   行线/列线/外框各司其职，任何内层都不再画框，杜绝 outline 重叠成双线）。
+   QYL 对齐机制：width:max-content 随层级深度自扩展（每层 250px 线性增长、
+   深层级永不消失）+ min-width:100% 浅表占满文档宽；各级子表 flex:1 占满行剩余
+   → 同级子表右边缘绝对对齐；超宽由根容器 overflow-x 横向滚动承接。
+   注意不能用固定 100%：深层子表会被挤成 0 宽（实测第 3 层起右半表消失） */
+[data-neo-lv="table"] > .orca-repr {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  width: max-content;
+  min-width: 100%;
+  border: 1px solid var(--_tb-border);
+  border-radius: 0;
+}
+/* 列表块自身无文本时隐藏空表头 */
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main:empty {
+  display: none;
+}
+/* 根列表块自身的文字 = 表格最左列的表头格子。
+   自身不画边框：左/上/下三边即整表外框，右边即根子表的列分隔线。
+   宽度对齐文字格 200px（原 240 会凸出列线）；右侧 18px 间距（画布比换算） */
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main {
+  flex: 0 0 auto;
+  width: 200px;
+  max-width: 200px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2px 16px;
+  font-weight: 600;
+  margin: 0 18px 0 0;
+}
+/* 所有子级容器（根子表 + 各层嵌套子表）：flex 纵向列——每行横向撑满容器宽度，
+   flex:1 占满所在行剩余宽度（QYL 对齐机制：各级子表右边缘恒重合、绝对对齐）。
+   用 flex 列而非 grid 自动轨——自动轨会按内容 max-content 撑大并让行溢出容器
+   （实测各级行溢出 127/149px 等，表格框架被撑破）。
+   行高用自然高度——教训：不能用 grid-auto-rows:1fr（1fr 行被 flex stretch 链
+   放大成「整棵子树高度」，整表高度爆炸，实测单格 38813px） */
+[data-neo-lv="table"] .orca-repr-children {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+}
+/* 列分隔线：子表容器只画左边一条竖线，把左侧文字格与右侧子表列分开。
+   上/下/右三边不画——上/下由行分隔线与整表外框提供；右边由 flex 布局天然贴到
+   整表右外框（子表 flex:1 吃掉行内剩余宽度，右边缘恒与行右边缘重合） */
+[data-neo-lv="table"] .orca-repr .orca-repr-children {
+  border-left: 1px solid var(--_tb-border);
+}
+/* 根列表块自身无文字（表头已隐藏）时，根子表的左边就是整表外框，不再重复画竖线 */
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main:empty ~ .orca-repr-children {
+  border-left: none;
+}
+/* 行分隔线：每层相邻行之间只画一条顶线（首行不画，其上即父级边界线） */
+[data-neo-lv="table"] .orca-repr-children > .orca-block + .orca-block {
+  border-top: 1px solid var(--_tb-border);
+}
+/* 所有列表项：横向 flex 行。项本身不画框 */
+[data-neo-lv="table"] .orca-repr-children > .orca-block {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  margin: 0;
+}
+/* 项内：单元格 + 子级容器横向排列 */
+[data-neo-lv="table"] .orca-repr-children > .orca-block > .orca-repr {
+  display: flex;
+  flex: 1;
+  flex-direction: row;
+  align-items: stretch;
+}
+/* 单元格：QYL 限宽机制——flex:1 1 0%（basis 0 可伸缩）+ min-width:200px（虎鲸
+   适配值：QYL 原 120px 按虎鲸/思源画布比 0.9 ≈ 108px，但虎鲸默认霞鹜文楷视觉松散，
+   eon 实测选定 200px ≈ 12 字/行为舒适密度）：有子级的行被子表 100% basis 竞争挤到
+   最小 200px（整列同宽、折行规整）；无子级的行 flex:1 自然撑满整行。
+   无显式 width/max-width——限宽是 flex 分配的自然结果（QYL 规整的根源）。
+   文字水平+垂直居中，右侧 18px 气口（QYL 20px × 0.9 画布比换算） */
+[data-neo-lv="table"] .orca-repr-children > .orca-block > .orca-repr > .orca-repr-main {
+  flex: 1 1 0%;
+  min-width: 200px;
+  min-height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2px 16px;
+  font-weight: 600;
+  margin: 0 18px 0 0;
+}
+/* 叶子行规则已并入单元格基础规则（flex:1 1 0% 在无子表时自动撑满整行），
+   与 QYL 的 .p{flex:1} 行为一致 */
+/* 子级容器补充：flex:0 1 100%（QYL 的 .list{width:100%} 竞争机制——basis 100%
+   使行内自由空间恒为负，文字格被挤到 min-width 200px，子表吃掉其余全部宽度），
+   去外边距 */
+[data-neo-lv="table"] .orca-repr-children > .orca-block > .orca-repr > .orca-repr-children {
+  flex: 0 1 100%;
+  min-width: 0;
+  margin: 0;
+}
+/* 只在开头的根块保留原生手柄（改造成 14px 圆点：真手柄真点击，菜单原生弹出；
+   盒 14px、:before 10px 实心圆、background:currentColor 使彩色列表配色自动生效），
+   其余子块的手柄全部隐藏 */
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main {
+  position: relative;
+}
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main > .orca-repr-main-none-editable {
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main > .orca-repr-main-none-editable > *:not(.orca-block-handle) {
+  display: none !important;
+}
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main > .orca-repr-main-none-editable > .orca-block-handle {
+  position: absolute !important;
+  left: 2px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 14px !important;
+  height: 14px !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  opacity: 1 !important;
+  pointer-events: auto;
+  color: var(--orca-color-gray-3, #b6b9bf) !important;
+}
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main > .orca-repr-main-none-editable > .orca-block-handle:before {
+  content: "" !important;
+  display: block !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 50% !important;
+  background: currentColor !important;
+  scale: none !important;
+  font-size: 0 !important;
+}
+[data-neo-lv="table"] > .orca-repr > .orca-repr-main > .orca-repr-main-none-editable > .orca-block-handle:hover {
+  width: 14px !important;
+  height: 14px !important;
+  background-color: transparent !important;
+  text-align: initial !important;
+  color: var(--neo-accent, #4f7cff) !important;
+}
+/* 子块的手柄全部隐藏 */
+[data-neo-lv="table"] .orca-repr-children .orca-repr-main-none-editable {
+  display: none !important;
+}
+/* 隐藏块尾点击区伪元素：它是 display:block 的 flex 项且带层级递增的 margin-left，
+   会把单元格文字往左挤偏（层级越深越偏），导致「有的文字不居中」 */
+[data-neo-lv="table"] .orca-repr-main::after {
+  display: none !important;
+}
+/* 无子集的项：隐藏空的/只有占位块的子级容器（否则它占掉右侧空间），
+   单元格贴文字宽度、行占满整行（与有子集项同宽的行，文字靠左） */
+[data-neo-lv="table"] .orca-repr-children:empty,
+[data-neo-lv="table"] .orca-repr-children:not(:has(> *)),
+[data-neo-lv="table"] .orca-repr-children:not(:has(.orca-repr-main-content:not(:empty))) {
+  display: none;
+}
+/* 内容层：占满所在单元格宽度、按格子宽度自然折行（宽格宽折、窄格窄折，
+   不设固定折行上限——避免「大格子却把文字挤成窄条」；格子都是定宽布局，
+   width:100% 不会再触发旧的「钉死 min-width 竖排」问题）。
+   缩进归零（嵌套层级由表格列本身表达） */
+[data-neo-lv="table"] .orca-repr-main > .orca-repr-main-content {
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+  width: 100%;
+}
+
+/* 菜单内的缩放条行：百分比输入 + 拖动滑杆（阻止事件冒泡保持菜单打开） */
+.neo-lv-zoomrow {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px !important;
+  cursor: default !important;
+}
+.neo-lv-zb-num {
+  width: 46px;
+  padding: 1px 4px;
+  font-size: 12px;
+  line-height: 16px;
+  border: 1px solid var(--orca-color-border, rgba(127, 127, 127, 0.5));
+  border-radius: 4px;
+  background: var(--orca-color-bg-1, #fff);
+  color: inherit;
+  font-family: var(--orca-fontfamily-ui, inherit);
+}
+.neo-lv-zb-range {
+  width: 110px;
+  margin: 0;
+}
+/* 全屏：表格铺满整个窗口（类 Orca 原生脑图全屏），顶部按页签条高度避让（tabs.ts
+   实测写入 --neo-lv-fs-top），Esc 退出 */
+.neo-lv-fullscreen {
+  position: fixed !important;
+  inset: var(--neo-lv-fs-top, 0) 0 0 0 !important;
+  z-index: var(--orca-zindex-maximized, 9999) !important;
+  background: var(--orca-color-bg-1, #fff) !important;
+  overflow: auto !important;
+  padding: 24px !important;
+  margin: 0 !important;
+}
