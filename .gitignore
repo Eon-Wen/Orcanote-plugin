@@ -13,3 +13,6 @@ orca-neo-release/
 # 记忆 / 系统文件
 **/.workbuddy/
 **/.DS_Store
+
+# vite dev watch 临时产物
+orca-neo/orca-neo/vite.config.ts.timestamp-*.mjs

@@ -23,6 +23,15 @@ import {
   disposeRefMigrateInjector,
 } from "./refMigrateInject"
 import { currentEditorBlockId, repairAllDanglingTags, repairIncomplete } from "./refMigrate"
+import { applyPageSort, disposePageSort, installPageSort } from "./pageSort"
+import {
+  installPageSortInjector,
+  disposePageSortInjector,
+} from "./pageSortInject"
+import {
+  installPageBatchSelect,
+  disposePageBatchSelect,
+} from "./pageBatchInclude"
 import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
@@ -136,6 +145,9 @@ function apply() {
   if (settings.refMigrateEnabled === true) installRefMigrateInjector()
   else disposeRefMigrateInjector()
 
+  // 侧边栏页面排序：按 pageSortMode 应用展示层排序（默认模式为原生序，无需干预）
+  void applyPageSort()
+
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
 }
@@ -176,6 +188,13 @@ export async function load() {
   // 入口注入到右上角三点菜单（设置/插件市场/备份/帮助浮层），不放顶栏按钮
   await initTrash()
   installTrashMenuInjector()
+
+  // 侧边栏页面排序：注入排序下拉 + 观察器/拖拽监听（apply() 按 pageSortMode 重排）
+  installPageSortInjector()
+  installPageSort()
+
+  // 侧边栏页面多选（Cmd/Ctrl+点击）→ 批量改变「包含于」页面
+  installPageBatchSelect()
 
   // 精细迁移引用入口注入与开关由 apply() 里的 refMigrateEnabled 控制（运行时可切换）
 
@@ -255,6 +274,9 @@ export async function unload() {
   disposeTrashMenuInjector()
   disposeTrash()
   disposeRefMigrateInjector()
+  disposePageSortInjector()
+  disposePageSort()
+  disposePageBatchSelect()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)
