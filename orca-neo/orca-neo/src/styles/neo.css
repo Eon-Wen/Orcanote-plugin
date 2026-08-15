@@ -350,17 +350,14 @@ body {
   font-size: 0.92em;
 }
 
-/* 链接：渐变下划线，hover 变 accent */
+/* 链接：文字色跟随正文，不再自绘渐变下划线——原生在 .orca-inline-l-text 上
+   自带一条 1px 实线，自绘会叠成两条线；那条原生线由下方 .orca-inline-l-text
+   规则统一染成主题色。hover 仍变 accent。 */
 .orca-block a,
 .orca-repr-main-content a,
 .orca-inline a {
   color: inherit;
   text-decoration: none;
-  background-image: linear-gradient(var(--neo-accent), var(--neo-accent));
-  background-size: 100% 1px;
-  background-position: 0 100%;
-  background-repeat: no-repeat;
-  padding-bottom: 2px;
   transition: color var(--neo-transition);
 }
 
@@ -372,7 +369,14 @@ body {
   text-decoration: none;
 }
 
-/* 块引用：点状渐变下划线 */
+/* 链接 / PDF / EPUB 文件名的原生单实线下划线：跟随主题色 */
+.orca-inline-l-text {
+  border-bottom-color: var(--neo-accent);
+}
+
+/* 块引用：不再自绘点状下划线——原生在 .orca-inline-r-content 上自带一条 1px
+   实线，自绘会叠成两条线；那条原生线由下方 .orca-inline-r-content 规则染成
+   主题色。 */
 .orca-inline-r-ref,
 .orca-inline[data-type="r"],
 .orca-block-ref {
@@ -381,18 +385,12 @@ body {
   opacity: 1;
   border: none;
   text-decoration: none;
-  background-image: repeating-linear-gradient(
-    90deg,
-    var(--neo-ref-color) 0px,
-    var(--neo-ref-color) 3px,
-    transparent 3px,
-    transparent 6px
-  );
-  background-size: 8px 1px;
-  background-position: 0 100%;
-  background-repeat: repeat-x;
-  padding-bottom: 2px;
   transition: color var(--neo-transition);
+}
+
+/* 引用的原生单实线下划线：跟随主题色 */
+.orca-inline-r-content {
+  text-decoration-color: var(--neo-accent);
 }
 
 .orca-inline-r-ref:hover,
