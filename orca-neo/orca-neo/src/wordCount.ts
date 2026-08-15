@@ -82,6 +82,10 @@ let mo: MutationObserver | null = null
 let rafPending = false
 let popup: HTMLElement | null = null
 
+/** 实时刷新：页面 DOM 变化停止 600ms 后重算活跃面板里各圆环（防抖，打字中不打扰） */
+let liveTimer: ReturnType<typeof setTimeout> | null = null
+let refreshGen = 0
+
 /** 目标标签的全部后代标签名（小写） */
 let childTags = new Set<string>()
 let childTagsLoading: Promise<void> | null = null
@@ -416,11 +420,65 @@ async function colorize(dot: HTMLElement, tag: HTMLElement): Promise<void> {
     ])
     if (!dot.isConnected) return
     const pct = target != null && target > 0 ? stats.words / target : 0
-    dot.innerHTML = miniRing(pct, target != null && target > 0 ? ringColor(pct) : "gray")
+    applyMiniRing(dot, pct, target)
     void celebrateIfComplete(blockId, pct, target)
   } catch {
     /* 统计失败时保留中性灰环 */
   }
+}
+
+/** 更新小环颜色；值没变就不写 DOM（避免观察器自激死循环） */
+function applyMiniRing(dot: HTMLElement, pct: number, target: number | null): void {
+  const key = pct.toFixed(4)
+  if (dot.dataset.percent === key) return
+  dot.dataset.percent = key
+  dot.innerHTML = miniRing(pct, target != null && target > 0 ? ringColor(pct) : "gray")
+}
+
+/** 实时刷新：重算活跃面板内所有圆点的完成度、更新颜色并做庆祝判定。
+ *  打字等 DOM 变化会经观察器 → scheduleLive 防抖触发；写 DOM 前先比对
+ *  百分比是否变化，未变不动 → 观察器不会自激。 */
+async function refreshActiveDots(): Promise<void> {
+  if (!enabled) return
+  const gen = ++refreshGen
+  const panelId = (orca as any).state?.activePanel as string | null
+  if (panelId == null) return
+  const dots = Array.from(
+    document.querySelectorAll<HTMLElement>(
+      `.orca-panel[data-panel-id="${panelId}"] .${DOT}`,
+    ),
+  )
+  for (const dot of dots) {
+    const blockEl = dot.closest<HTMLElement>(".orca-block[data-id]")
+    const blockId = Number(blockEl?.dataset.id)
+    if (!Number.isFinite(blockId)) continue
+    const tag = dot.previousElementSibling as HTMLElement | null
+    try {
+      const block: OrcaBlock | undefined =
+        (orca as any).state?.blocks?.[blockId] ??
+        (await backend("get-block", blockId))
+      const ref = block != null && tag != null ? refForTagEl(block, tag) : null
+      const [stats, target] = await Promise.all([
+        computeStats(blockId),
+        readTarget(ref),
+      ])
+      if (gen !== refreshGen || !dot.isConnected) return
+      const pct = target != null && target > 0 ? stats.words / target : 0
+      applyMiniRing(dot, pct, target)
+      void celebrateIfComplete(blockId, pct, target)
+    } catch {
+      /* 统计失败保持现状 */
+    }
+  }
+}
+
+function scheduleLive(): void {
+  if (!enabled) return
+  if (liveTimer != null) clearTimeout(liveTimer)
+  liveTimer = setTimeout(() => {
+    liveTimer = null
+    void refreshActiveDots()
+  }, 600)
 }
 
 function schedule(): void {
@@ -429,6 +487,8 @@ function schedule(): void {
   requestAnimationFrame(() => {
     rafPending = false
     scan()
+    // 任何 DOM 变化都推后实时统计（防抖），打字停下 600ms 才真正重算
+    scheduleLive()
   })
 }
 
@@ -639,7 +699,7 @@ async function openPopup(dot: HTMLElement): Promise<void> {
     popup.innerHTML = render(stats, target, deadline)
     // 弹层关闭/重算后，把标签旁小环也刷新成最新颜色
     const pct = target != null && target > 0 ? stats.words / target : 0
-    dot.innerHTML = miniRing(pct, ringColor(pct))
+    applyMiniRing(dot, pct, target)
     void celebrateIfComplete(blockId, pct, target)
     place(dot)
   } catch {
@@ -697,6 +757,11 @@ export function enableWordCount(
 export function disableWordCount(): void {
   if (!enabled) return
   enabled = false
+  refreshGen++ // 作废在途的实时刷新
+  if (liveTimer != null) {
+    clearTimeout(liveTimer)
+    liveTimer = null
+  }
   mo?.disconnect()
   mo = null
   document.removeEventListener("click", onClick, true)
