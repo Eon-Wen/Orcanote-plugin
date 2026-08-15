@@ -298,6 +298,20 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       "对当前纹理基础强度的最终乘数，0 为关闭。1 表示采用思源 Neo 的原版强度；可大于 1 加强、小于 1 减弱。各纹理明暗模式下有各自独立的基础强度。",
     defaultValue: 1,
   },
+  taskShape: {
+    type: "singleChoice",
+    label: "任务勾选形状",
+    description:
+      "任务列表勾选标记的形状。「默认」使用虎鲸原生形状，其余为 Neo 提供的常规形状。无论哪种形状，颜色都跟随主题：未完成为主题中性色、已完成为主题色。",
+    defaultValue: "default",
+    choices: [
+      { label: "默认（原生）", value: "default" },
+      { label: "圆形", value: "circle" },
+      { label: "圆角方形", value: "roundedsquare" },
+      { label: "菱形", value: "diamond" },
+      { label: "星形", value: "star" },
+    ],
+  },
   wordCountTag: {
     type: "string",
     label: "写作标签",
@@ -334,6 +348,9 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
   },
 }
 
+/** 任务勾选形状中「非原生」的选项（对应 body.neo-task-shape-<id> 类的 mask 形状） */
+export const TASK_MASK_SHAPES = ["circle", "roundedsquare", "diamond", "star"] as const
+
 export interface NeoSettings {
   palette: string
   customColor: string
@@ -341,6 +358,7 @@ export interface NeoSettings {
   invertDark: boolean
   texture: string
   textureOpacity: number
+  taskShape: string
   backgroundImage: string
   backgroundVeil: number
   [key: string]: unknown

@@ -136,6 +136,7 @@ function NeoMenu() {
   const dark = window.matchMedia("(prefers-color-scheme: dark)").matches
   const paletteChoices = buildPaletteChoices(dark)
   const textureChoices = SETTINGS_SCHEMA.texture.choices ?? []
+  const taskShapeChoices = SETTINGS_SCHEMA.taskShape.choices ?? []
 
   return (
     <>
@@ -224,6 +225,17 @@ function NeoMenu() {
                   }
                 />
               </label>
+            </Section>
+
+            <Section title="任务勾选形状">
+              {taskShapeChoices.map((c: any) => (
+                <Row
+                  key={c.value}
+                  label={c.label}
+                  active={(settings.taskShape ?? "default") === c.value}
+                  onClick={() => update({ taskShape: c.value })}
+                />
+              ))}
             </Section>
 
             <Section title="功能开关">

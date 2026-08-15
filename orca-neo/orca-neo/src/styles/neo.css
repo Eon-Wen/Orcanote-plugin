@@ -30,10 +30,6 @@
   --neo-r-2xl: 21px;
   --neo-r-pill: 25px;
   --neo-superellipse: 1.4;
-
-  /* 任务列表勾选图标 */
-  --neo-task-unchecked: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path d="M512 903.11c216 0 391.11-175.1 391.11-391.11S728 120.89 512 120.89 120.89 296 120.89 512 296 903.11 512 903.11z m0 64C260.65 967.11 56.89 763.35 56.89 512S260.65 56.89 512 56.89 967.11 260.65 967.11 512 763.35 967.11 512 967.11z"/></svg>');
-  --neo-task-checked: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path d="M512 56.89C260.65 56.89 56.89 260.65 56.89 512S260.65 967.11 512 967.11 967.11 763.35 967.11 512 763.35 56.89 512 56.89z m211.2 349.87L471.47 658.49a32 32 0 0 1-45.25 0L318.8 551.07a32 32 0 1 1 45.25-45.25l84.79 84.79 229.11-229.11a32 32 0 0 1 45.25 45.26z"/></svg>');
 }
 
 /* 浏览器支持 corner-shape 时启用真正的超椭圆：半径放大到 r×1.4 并切换角形。
@@ -665,8 +661,23 @@ body:not(.neo-colorful-list)
   color: var(--neo-accent);
 }
 
-/* 任务列表：替换 tabler 图标为 Neo 的 SVG mask 圆形勾选 */
-.orca-repr-task-content::before {
+/* 任务列表：保留原生 tabler 方块勾选形状，仅让颜色跟随主题
+   （未完成 → 主题中性色；已完成 → accent；hover 高亮 accent） */
+.orca-repr-task-0::before {
+  color: var(--neo-on-surface);
+}
+
+.orca-repr-task-1::before {
+  color: var(--neo-accent);
+}
+
+.orca-repr-task-content:hover::before {
+  color: var(--neo-accent);
+}
+
+/* 任务勾选形状（自选）：非默认形状走 SVG mask 方框——颜色填充（未完成中性色 /
+   已完成 accent），形状由下方各 body.neo-task-shape-<id> 的 mask 决定。 */
+body.neo-task-mask .orca-repr-task-content::before {
   content: "" !important;
   font-family: inherit !important;
   position: relative;
@@ -683,19 +694,52 @@ body:not(.neo-colorful-list)
   transition: background-color var(--neo-transition);
 }
 
-.orca-repr-task-0::before {
-  -webkit-mask-image: var(--neo-task-unchecked);
-  mask-image: var(--neo-task-unchecked);
-}
-
-.orca-repr-task-1::before {
-  background-color: var(--neo-accent) !important;
-  -webkit-mask-image: var(--neo-task-checked);
-  mask-image: var(--neo-task-checked);
-}
-
-.orca-repr-task-content:hover::before {
+body.neo-task-mask .orca-repr-task-1::before {
   background-color: var(--neo-accent);
+}
+
+body.neo-task-mask .orca-repr-task-content:hover::before {
+  background-color: var(--neo-accent);
+}
+
+/* 圆形：空心圆 → 实心圆打勾 */
+body.neo-task-shape-circle .orca-repr-task-0::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="black" stroke-width="2"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="black" stroke-width="2"/></svg>');
+}
+body.neo-task-shape-circle .orca-repr-task-1::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="black"/><path d="M7.8 12.4l2.7 2.7 5.7-6.2" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="black"/><path d="M7.8 12.4l2.7 2.7 5.7-6.2" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+}
+
+/* 圆角方形：空心圆角框 → 实心圆角框打勾 */
+body.neo-task-shape-roundedsquare .orca-repr-task-0::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="none" stroke="black" stroke-width="2"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="4.5" fill="none" stroke="black" stroke-width="2"/></svg>');
+}
+body.neo-task-shape-roundedsquare .orca-repr-task-1::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="black"/><path d="M7.8 12.4l2.7 2.7 5.7-6.2" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2.5" y="2.5" width="19" height="19" rx="5" fill="black"/><path d="M7.8 12.4l2.7 2.7 5.7-6.2" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+}
+
+/* 菱形：空心菱形 → 实心菱形打勾 */
+body.neo-task-shape-diamond .orca-repr-task-0::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2.8 21.2 12 12 21.2 2.8 12Z" fill="none" stroke="black" stroke-width="2" stroke-linejoin="round"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2.8 21.2 12 12 21.2 2.8 12Z" fill="none" stroke="black" stroke-width="2" stroke-linejoin="round"/></svg>');
+}
+body.neo-task-shape-diamond .orca-repr-task-1::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="black"/><path d="M7.8 12.4l2.7 2.7 5.7-6.2" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2 22 12 12 22 2 12Z" fill="black"/><path d="M7.8 12.4l2.7 2.7 5.7-6.2" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+}
+
+/* 星形：空心五角星 → 实心五角星打勾 */
+body.neo-task-shape-star .orca-repr-task-0::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3l2.7 5.5 6 .9-4.3 4.2 1 6L12 17l-5.4 2.8 1-6L3.3 9.4l6-.9z" fill="none" stroke="black" stroke-width="1.8" stroke-linejoin="round"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3l2.7 5.5 6 .9-4.3 4.2 1 6L12 17l-5.4 2.8 1-6L3.3 9.4l6-.9z" fill="none" stroke="black" stroke-width="1.8" stroke-linejoin="round"/></svg>');
+}
+body.neo-task-shape-star .orca-repr-task-1::before {
+  -webkit-mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2.5l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 2.9 1.1-6.3-4.6-4.4 6.3-.9z" fill="black"/><path d="M8.6 11.9l2.4 2.4 4.4-5.1" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>');
+  mask-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2.5l2.8 5.8 6.3.9-4.6 4.4 1.1 6.3L12 17.2l-5.6 2.9 1.1-6.3-4.6-4.4 6.3-.9z" fill="black"/><path d="M8.6 11.9l2.4 2.4 4.4-5.1" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 }
 
 .orca-repr-task-1 .orca-inline {

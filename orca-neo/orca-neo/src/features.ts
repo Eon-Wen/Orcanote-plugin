@@ -1,5 +1,5 @@
 import { PALETTE_MAP, PALETTES, type PaletteScheme } from "./palettes"
-import { FEATURES, paletteAvailableInMode, type NeoSettings } from "./settings"
+import { FEATURES, TASK_MASK_SHAPES, paletteAvailableInMode, type NeoSettings } from "./settings"
 import { ENTER_WAV, KEY_WAV } from "./sounds"
 
 const ROOT = document.documentElement
@@ -163,6 +163,17 @@ export function applyFeatures(settings: NeoSettings) {
   } else {
     ROOT.style.removeProperty("--neo-bg-image")
     ROOT.style.removeProperty("--neo-bg-veil")
+  }
+
+  // 任务勾选形状：「默认」走原生字形（无类），其余切 neo-task-mask（遮罩方框）
+  // + 具体形状类 neo-task-shape-<id>（neo.css 提供各形状的 SVG mask）。
+  for (const cls of Array.from(body.classList)) {
+    if (cls.startsWith("neo-task-shape-")) body.classList.remove(cls)
+  }
+  body.classList.remove("neo-task-mask")
+  const taskShape = settings.taskShape ?? "default"
+  if (taskShape !== "default" && (TASK_MASK_SHAPES as readonly string[]).includes(taskShape)) {
+    body.classList.add("neo-task-mask", `neo-task-shape-${taskShape}`)
   }
 }
 
@@ -443,7 +454,12 @@ export const typeSound = new TypeSound()
 export function cleanupDom() {
   const body = document.body
   for (const f of FEATURES) body.classList.remove(f.className)
-  body.classList.remove("neo-texture", "neo-custom-bg")
+  body.classList.remove("neo-texture", "neo-custom-bg", "neo-task-mask")
+  for (const cls of Array.from(body.classList)) {
+    if (cls.startsWith("neo-texture-") || cls.startsWith("neo-task-shape-")) {
+      body.classList.remove(cls)
+    }
+  }
   for (const v of OWNED_VARS) ROOT.style.removeProperty(v)
   // 兜底：清掉任何遗留的 --neo-* 内联变量
   for (const name of Array.from(ROOT.style)) {
