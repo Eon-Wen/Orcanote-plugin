@@ -2322,3 +2322,45 @@ body.neo-whiteboard-bg .orca-whiteboard .excalidraw {
 body.neo-whiteboard-bg .orca-whiteboard:not(.orca-maximized) {
   border: 1px solid var(--neo-primary, #6a85e3) !important;
 }
+
+/* --------------------------------------------------------------------------
+   PDF 书页背景跟随主题（需求 20）。
+   逆向结论：白色不是 CSS 背景——pdf.js 的 CanvasGraphics.beginDrawing 默认
+   fillStyle="#ffffff" 把白底**画进 canvas 像素**（app.asar 0x554313：
+   fillStyle=dm||"#ffffff" 后整幅 fillRect），与 Excalidraw 白板同款坑，
+   所以改 .page 的 CSS 背景只能染到画布边缘，纸本身纹丝不动。
+   解法：用混合模式把 canvas 的白色像素「翻译」成下方 .page 的主题底色——
+   - 浅色：multiply。白(1)×主题色=主题色，黑墨(0)×主题色=黑墨不变；
+   - 暗色：先 filter 反相（白纸→黑、黑字→白，hue-rotate 还原色相，同虎鲸
+     原生 PDF 暗色模式），再 screen 混合。黑纸(0) screen 主题色=主题色，
+     白字(1) 保持白。
+   .page 背景同步设主题色，保证 canvas 未覆盖的边缘/加载态同色。
+   --neo-pdf-image 由插件在设置「PDF 自定义背景图」时写入（完整 url() 串，
+   留空回落纯主题色），图片 cover 铺满书页、垫在主题底色之上。
+   同时接管原生暗色开关的 filter，避免「Neo 暗色 + 原生暗色」双反相翻回浅色。
+   -------------------------------------------------------------------------- */
+body.neo-pdf-bg .orca-pdf-viewer .pdfViewer .page {
+  background-color: var(--neo-background, #ffffff) !important;
+  background-image: var(--neo-pdf-image, none) !important;
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+}
+body.neo-pdf-bg .orca-pdf-viewer .pdfViewer .page canvas {
+  mix-blend-mode: multiply !important;
+}
+body.neo-pdf-bg.neo-scheme-dark .orca-pdf-viewer .pdfViewer .page canvas {
+  /* 性能：invert(1) hue-rotate(180deg) contrast(0.85) 三滤镜链每页要多次
+     离屏处理，滚动翻页会卡。等价单矩阵滤镜见 main.ts 注入的 #neo-pdf-invert
+     （内联 style 覆盖本规则——CSS 文件里 url(#frag) 会解析到样式表自身，
+     引用必须放内联）。此链保留作 SVG 注入失败时的回退。 */
+  filter: invert(1) hue-rotate(180deg) contrast(0.85) !important;
+  mix-blend-mode: screen !important;
+}
+body.neo-pdf-bg.neo-scheme-dark .orca-pdf-viewer .textLayer {
+  mix-blend-mode: multiply;
+  background-color: #bbb;
+}
+body.neo-pdf-bg.neo-scheme-dark .orca-pdf-viewer.orca-pdf-viewer-dark .page {
+  filter: none !important;
+}

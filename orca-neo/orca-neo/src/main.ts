@@ -40,6 +40,7 @@ import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
 import { installWelcome, disposeWelcome } from "./welcome"
 import { enableWhiteboardBg, disableWhiteboardBg, disposeWhiteboardBg } from "./whiteboard"
+import { applyEpubBg, disposeEpubBg } from "./epubBg"
 import { applyEpubScroll, disposeEpubScroll } from "./epubScroll"
 
 const PLUGIN_NAME = "orca-neo"
@@ -87,6 +88,43 @@ function injectPlusStyles() {
 function removePlusStyles() {
   removeStyle(PLUS_CSS_ID)
   removeStyle(TEXTURES_CSS_ID)
+}
+
+const PDF_FILTER_SVG_ID = "neo-pdf-filter-defs"
+const PDF_FILTER_STYLE_ID = "neo-pdf-filter-style"
+
+/** PDF 暗色反相的单矩阵滤镜：把 invert(1) hue-rotate(180deg) contrast(0.85)
+ *  三滤镜链合并成一个 feColorMatrix（一次离屏处理，翻页滚动更省）。
+ *  CSS 文件里的 url(#frag) 会解析到样式表自身而失效，所以 SVG 定义与引用
+ *  规则都以内联元素注入主文档（引用规则在 neo-plus.css 回退滤镜链之后，
+ *  同权重后插者赢）。 */
+function injectPdfDarkFilter() {
+  if (document.getElementById(PDF_FILTER_SVG_ID)) return
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+  svg.id = PDF_FILTER_SVG_ID
+  svg.setAttribute("aria-hidden", "true")
+  svg.setAttribute("focusable", "false")
+  svg.setAttribute("style", "position:absolute;width:0;height:0;overflow:hidden")
+  svg.innerHTML =
+    '<filter id="neo-pdf-invert" color-interpolation-filters="sRGB">' +
+    '<feColorMatrix type="matrix" values="' +
+    "0.4879 -1.2155 -0.1224 0 0.925 " +
+    "-0.3621 -0.3655 -0.1224 0 0.925 " +
+    "-0.3621 -1.2155 0.7276 0 0.925 " +
+    '0 0 0 1 0"/></filter>'
+  document.body.appendChild(svg)
+
+  const style = document.createElement("style")
+  style.id = PDF_FILTER_STYLE_ID
+  style.textContent =
+    'body.neo-pdf-bg.neo-scheme-dark .orca-pdf-viewer .pdfViewer .page canvas{' +
+    'filter:url("#neo-pdf-invert")!important}'
+  document.head.appendChild(style)
+}
+
+function removePdfDarkFilter() {
+  document.getElementById(PDF_FILTER_SVG_ID)?.remove()
+  document.getElementById(PDF_FILTER_STYLE_ID)?.remove()
 }
 
 function readSettings(): NeoSettings {
@@ -141,6 +179,12 @@ function apply() {
   // 白板背景跟随主题色：画布置透明 + CSS 垫主题底色（运行时开关）
   if (settings.whiteboardBg === true) enableWhiteboardBg()
   else disableWhiteboardBg()
+
+  // PDF/EPUB 书页背景跟随主题：
+  // PDF 是纯 CSS（.page 白底改主题色 + 暗色反白，见 neo-plus.css）；
+  // EPUB 是 epub.js 同源 iframe，由 epubBg 注入样式并自愈。
+  // 需在 applyFeatures 之后调用（依赖 --neo-pdf-bg 变量与 neo-scheme-dark 类）。
+  applyEpubBg(settings)
 
   // EPUB 连续垂直滚动：宽屏下虎鲸原生是翻页，开关打开时把阅读器切到
   // epub.js 的 scrolled-doc 整书滚动模式（epubScroll 模块，运行时开关）
@@ -209,6 +253,7 @@ export async function load() {
   orca.themes.register(PLUGIN_NAME, THEME_NAME, THEME_CSS)
 
   injectPlusStyles()
+  injectPdfDarkFilter()
 
   startScopeHighlight()
 
@@ -335,10 +380,12 @@ export async function unload() {
   disableTabs()
   disableWordCount()
   disposeWhiteboardBg()
+  disposeEpubBg()
   disposeEpubScroll()
   stopScopeHighlight()
   stopColorSidebar()
   removePlusStyles()
+  removePdfDarkFilter()
   cleanupDom()
   orca.themes.unregister(THEME_NAME)
 }

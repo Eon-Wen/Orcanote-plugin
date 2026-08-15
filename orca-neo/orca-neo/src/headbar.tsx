@@ -287,6 +287,28 @@ function NeoMenu() {
                   }
                 />
               </label>
+              <label className="neo-hb-field col">
+                <span>PDF 自定义书页背景图</span>
+                <input
+                  type="text"
+                  placeholder="file:// 或 https://（留空=跟随主题）"
+                  value={settings.pdfBgImage}
+                  onChange={(e: any) =>
+                    update({ pdfBgImage: e.target.value })
+                  }
+                />
+              </label>
+              <label className="neo-hb-field col">
+                <span>EPUB 自定义书页背景图</span>
+                <input
+                  type="text"
+                  placeholder="file:// 或 https://（留空=跟随主题）"
+                  value={settings.epubBgImage}
+                  onChange={(e: any) =>
+                    update({ epubBgImage: e.target.value })
+                  }
+                />
+              </label>
             </Section>
           </div>,
           document.body,

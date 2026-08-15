@@ -114,6 +114,22 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: false,
   },
   {
+    key: "pdfBg",
+    className: "neo-pdf-bg",
+    label: "PDF 背景跟随主题",
+    description:
+      "PDF 块的书页底色跟随 Neo 配色方案（暗色主题下正文自动反白，保持可读）。可在下方「PDF 自定义背景图」给书页垫一张图片，设置后图片优先于主题色。",
+    defaultValue: false,
+  },
+  {
+    key: "epubBg",
+    className: "neo-epub-bg",
+    label: "EPUB 背景跟随主题",
+    description:
+      "EPUB 块的书页底色跟随 Neo 配色方案（暗色主题下正文自动变浅，保持可读）。可在下方「EPUB 自定义背景图」给书页垫一张图片，设置后图片优先于主题色。",
+    defaultValue: false,
+  },
+  {
     key: "epubScroll",
     className: "neo-epub-scroll",
     label: "EPUB 连续滚动",
@@ -388,6 +404,20 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
     label: "背景图蒙版浓度",
     description: "背景图之上的底色遮罩不透明度，0–1。数值越小背景图越清晰。",
     defaultValue: 0.86,
+  },
+  pdfBgImage: {
+    type: "string",
+    label: "PDF 自定义背景图",
+    description:
+      "可选：给 PDF 块的书页垫一张背景图（需开启「PDF 背景跟随主题」）。填入图片 URL 或本地文件路径（file:// 开头）。留空表示只用主题色。",
+    defaultValue: "",
+  },
+  epubBgImage: {
+    type: "string",
+    label: "EPUB 自定义背景图",
+    description:
+      "可选：给 EPUB 块的书页垫一张背景图（需开启「EPUB 背景跟随主题」）。填入图片 URL 或本地文件路径（file:// 开头）。留空表示只用主题色。",
+    defaultValue: "",
   },
 }
 

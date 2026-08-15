@@ -18,6 +18,7 @@ const OWNED_VARS = [
   "--neo-texture-opacity",
   "--neo-bg-image",
   "--neo-bg-veil",
+  "--neo-pdf-bg",
 ]
 
 /** 「跟随时间」模式下各时段对应的预设配色 */
@@ -178,6 +179,20 @@ export function applyFeatures(settings: NeoSettings) {
 
   // 页签圆角：「直角」切 body.neo-tab-sharp（neo-plus.css 把页签 border-radius 归零）
   body.classList.toggle("neo-tab-sharp", (settings.tabCorners ?? "rounded") === "sharp")
+
+  // 明暗模式标记：供 PDF/EPUB 书页背景在暗色下自动反白正文（PDF 走 CSS，EPUB 由 epubBg 模块读取）
+  body.classList.toggle("neo-scheme-dark", isDark())
+
+  // PDF 自定义书页背景图：设置后垫在书页底色之上（--neo-pdf-image 为完整 url() 串）
+  const pdfBgImage = String(settings.pdfBgImage ?? "").trim()
+  if (pdfBgImage) {
+    ROOT.style.setProperty(
+      "--neo-pdf-image",
+      `url("${pdfBgImage.replace(/"/g, '\\"')}")`,
+    )
+  } else {
+    ROOT.style.removeProperty("--neo-pdf-image")
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -457,7 +472,7 @@ export const typeSound = new TypeSound()
 export function cleanupDom() {
   const body = document.body
   for (const f of FEATURES) body.classList.remove(f.className)
-  body.classList.remove("neo-texture", "neo-custom-bg", "neo-task-mask", "neo-tab-sharp")
+  body.classList.remove("neo-texture", "neo-custom-bg", "neo-task-mask", "neo-tab-sharp", "neo-scheme-dark")
   for (const cls of Array.from(body.classList)) {
     if (cls.startsWith("neo-texture-") || cls.startsWith("neo-task-shape-")) {
       body.classList.remove(cls)
