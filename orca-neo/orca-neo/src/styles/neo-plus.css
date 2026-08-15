@@ -645,6 +645,8 @@ body.neo-browser-tabs #main {
   align-items: center;
   gap: 4px;
   padding: 0 8px;
+  /* 跟随虎鲸「界面字体」设置（原生控件同款变量），设置里改字体页签即时跟随 */
+  font-family: var(--orca-fontfamily-ui, inherit);
   /* 与编辑器背景完全一致（body 背景即 --orca-color-bg-1），不描边，
      让页签条与编辑区融为一体；层次感只由页签本身承担。 */
   background-color: var(--orca-color-bg-1);
@@ -663,7 +665,7 @@ body.neo-browser-tabs #main {
   height: calc(var(--neo-tabbar-h) - 8px);
   padding: 0 6px 0 10px;
   border-radius: var(--neo-r-md, 6px);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1;
   color: var(--neo-on-background, #444);
   cursor: grab;
@@ -805,12 +807,12 @@ body.neo-tab-sharp .neo-tab {
 
 .neo-tab-icon {
   flex: 0 0 auto;
-  font-size: 13px;
+  font-size: 14px;
   opacity: 0.65;
 }
 /* 页面/块/标签自定义的 emoji 图标（块属性 _icon 非 "ti " 开头时按字符渲染） */
 .neo-tab-icon-emoji {
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   opacity: 0.9;
 }
@@ -844,7 +846,7 @@ body.neo-tab-sharp .neo-tab {
 
 .neo-tab-close {
   flex: 0 0 auto;
-  font-size: 15px;
+  font-size: 16px;
   line-height: 1;
   opacity: 0.5;
   border-radius: 4px;
