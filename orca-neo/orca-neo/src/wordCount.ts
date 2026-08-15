@@ -22,6 +22,7 @@ import { fireworks } from "./confetti"
 
 const DOT = "neo-wc-dot"
 const POPUP = "neo-wc-popup"
+const PLUGIN_NAME = "orca-neo"
 
 interface TagRefData {
   name: string
@@ -416,7 +417,7 @@ async function colorize(dot: HTMLElement, tag: HTMLElement): Promise<void> {
     if (!dot.isConnected) return
     const pct = target != null && target > 0 ? stats.words / target : 0
     dot.innerHTML = miniRing(pct, target != null && target > 0 ? ringColor(pct) : "gray")
-    celebrateIfComplete(dot, pct)
+    void celebrateIfComplete(blockId, pct, target)
   } catch {
     /* 统计失败时保留中性灰环 */
   }
@@ -578,15 +579,32 @@ function place(dot: HTMLElement): void {
   popup.style.top = `${Math.round(Math.max(8, top))}px`
 }
 
-/** 当完成度达到 100%（紫色）时触发全屏彩带；用 data-celebrated 防止同一环重复庆祝 */
-function celebrateIfComplete(dot: HTMLElement, pct: number): void {
-  if (pct < 1) {
-    dot.dataset.celebrated = "" // 未达 100% 时清掉标记，下次达标可再庆祝
-    return
+/**
+ * 达成庆祝：同一块对同一个目标值只庆祝一次——已庆祝的目标值持久化在插件数据
+ * wc-celebrated:<repoId>:<blockId>，跨刷新/重启记忆。目标字数被修改后再一次达成
+ * 才会重新庆祝。之前用圆点 DOM 上的 data-celebrated 标记，页面重进时圆点重建、
+ * 标记丢失，导致每次进入页面都重放动画。
+ */
+async function celebrateIfComplete(
+  blockId: number,
+  pct: number,
+  target: number | null,
+): Promise<void> {
+  if (pct < 1 || target == null || target <= 0) return
+  const key = `wc-celebrated:${orca.state.repo}:${blockId}`
+  let celebrated: number | null = null
+  try {
+    celebrated = toNumber(await backend("get-plugin-data", PLUGIN_NAME, key))
+  } catch {
+    /* 读不到就当从未庆祝过 */
   }
-  if (dot.dataset.celebrated === "1") return
-  dot.dataset.celebrated = "1"
+  if (celebrated === target) return
   fireworks()
+  try {
+    await backend("set-plugin-data", PLUGIN_NAME, key, String(target))
+  } catch (e) {
+    console.warn("[WC] 记录庆祝状态失败：", e)
+  }
 }
 
 async function openPopup(dot: HTMLElement): Promise<void> {
@@ -622,7 +640,7 @@ async function openPopup(dot: HTMLElement): Promise<void> {
     // 弹层关闭/重算后，把标签旁小环也刷新成最新颜色
     const pct = target != null && target > 0 ? stats.words / target : 0
     dot.innerHTML = miniRing(pct, ringColor(pct))
-    celebrateIfComplete(dot, pct)
+    void celebrateIfComplete(blockId, pct, target)
     place(dot)
   } catch {
     if (popup != null) popup.innerHTML = `<div class="neo-wc-loading">统计失败</div>`
