@@ -148,15 +148,59 @@ let observer: MutationObserver | null = null
 let initObserver: MutationObserver | null = null
 let timer = 0
 
+// 拖拽进行中（任意从侧栏发起的拖拽，覆盖收藏/页面/标签、任何排序模式）：
+// 暂停同步上色、回退 120ms 防抖调度。修复 13 把 childList 改成同步 paint 后，
+// 拖拽期间的同步写 DOM 会打断拖拽；旧版防抖 paint 落在拖拽中途从不打断拖拽（历史验证）。
+// drop/dragend 在观察器微任务之前同步释放，drop 后的重绘仍同步、颜色即时正确。
+let dragging = false
+let dragListenersInstalled = false
+
+function onDocDragStartCapture(e: DragEvent) {
+  const el = e.target as HTMLElement | null
+  if (el && el.closest?.("#sidebar")) dragging = true
+}
+
+function onDocDropCapture() {
+  dragging = false
+}
+
+function onDocDragEndCapture() {
+  dragging = false
+}
+
 function schedulePaint() {
   clearTimeout(timer)
   timer = window.setTimeout(paint, 120)
 }
 
+/** 观察器回调分流：
+ *  - 拖拽进行中：【回退防抖】。拖拽期间的同步写 DOM 会打断拖拽（见 dragging 说明）。
+ *  - 结构变化（展开/折叠、新建、排序移动 → childList）：【同步】重绘。
+ *    MutationObserver 回调在浏览器绘制前执行，同步上色让新出现的条目当帧即彩色，
+ *    消灭「展开瞬间先无色、防抖到点再闪成彩色」的闪帧（旧版 120ms 防抖即闪帧来源）。
+ *    观察器不监听 attribute，paint 只写样式/类，不会自触发成环。
+ *  - 纯文字变化（重命名输入、日期格文字更新 → characterData）：不动结构、
+ *    不影响列表配色，仍走 120ms 防抖低频重绘，避免每敲一键全量重绘。 */
+function onSidebarMutations(list: MutationRecord[]) {
+  if (dragging) {
+    schedulePaint()
+    return
+  }
+  let structural = false
+  for (const m of list) {
+    if (m.type === "childList") {
+      structural = true
+      break
+    }
+  }
+  if (structural) paint()
+  else schedulePaint()
+}
+
 function observeSidebar() {
   const sidebar = document.getElementById("sidebar")
   if (!sidebar || observer) return
-  observer = new MutationObserver(() => schedulePaint())
+  observer = new MutationObserver(onSidebarMutations)
   observer.observe(sidebar, {
     childList: true,
     subtree: true,
@@ -180,6 +224,12 @@ export function startColorSidebar() {
     })
     initObserver.observe(document.body, { childList: true, subtree: true })
   }
+  if (!dragListenersInstalled) {
+    dragListenersInstalled = true
+    document.addEventListener("dragstart", onDocDragStartCapture, true)
+    document.addEventListener("drop", onDocDropCapture, true)
+    document.addEventListener("dragend", onDocDragEndCapture, true)
+  }
 }
 
 /** 由「彩色文档树」开关驱动：开 → 上色并监听，关 → 清掉所有彩色类与内联色，
@@ -196,6 +246,12 @@ export function stopColorSidebar() {
   initObserver?.disconnect()
   initObserver = null
   clearTimeout(timer)
+  if (dragListenersInstalled) {
+    dragListenersInstalled = false
+    document.removeEventListener("dragstart", onDocDragStartCapture, true)
+    document.removeEventListener("drop", onDocDropCapture, true)
+    document.removeEventListener("dragend", onDocDragEndCapture, true)
+  }
   document.querySelectorAll(".neo-citem, .neo-cday, .neo-ccal").forEach((el) => {
     el.classList.remove("neo-citem", "neo-cday", "neo-ccal")
     el.style.removeProperty("--neo-item-color")
