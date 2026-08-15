@@ -40,6 +40,7 @@ import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
 import { installWelcome, disposeWelcome } from "./welcome"
 import { enableWhiteboardBg, disableWhiteboardBg, disposeWhiteboardBg } from "./whiteboard"
+import { applyEpubScroll, disposeEpubScroll } from "./epubScroll"
 
 const PLUGIN_NAME = "orca-neo"
 const THEME_NAME = "Neo"
@@ -140,6 +141,10 @@ function apply() {
   // 白板背景跟随主题色：画布置透明 + CSS 垫主题底色（运行时开关）
   if (settings.whiteboardBg === true) enableWhiteboardBg()
   else disableWhiteboardBg()
+
+  // EPUB 连续垂直滚动：宽屏下虎鲸原生是翻页，开关打开时把阅读器切到
+  // epub.js 的 scrolled-doc 整书滚动模式（epubScroll 模块，运行时开关）
+  applyEpubScroll(settings)
 
   // 写作进度统计：写作子标签旁的圆点 + 字数/目标完成度面板
   if (settings.wordCount === true) {
@@ -330,6 +335,7 @@ export async function unload() {
   disableTabs()
   disableWordCount()
   disposeWhiteboardBg()
+  disposeEpubScroll()
   stopScopeHighlight()
   stopColorSidebar()
   removePlusStyles()

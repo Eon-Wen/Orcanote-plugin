@@ -114,6 +114,14 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: false,
   },
   {
+    key: "epubScroll",
+    className: "neo-epub-scroll",
+    label: "EPUB 连续滚动",
+    description:
+      "EPUB 阅读器改为整书连续垂直滚动（虎鲸原生在窗口较宽时是左右翻页）。关闭后恢复原生翻页。",
+    defaultValue: false,
+  },
+  {
     key: "wordCount",
     className: "neo-word-count",
     label: "写作进度统计",
