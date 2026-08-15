@@ -2102,3 +2102,149 @@ body.neo-frostedglass .neo-wc-popup {
   flex: 1;
   min-width: 0;
 }
+
+/* ===========================================================================
+   插件图标抽屉（需求 14）：把顶栏越积越多的插件图标与原生按钮折叠收纳
+   - 收纳徽标：挂在本插件以外的顶栏按钮（插件 + 原生）右上角，悬停才出现
+   - 抽屉弹层：与 neo-hb-pop 同款外观，挂在 body
+   说明：不给按钮写 inline style 的位置约束（React 重渲染会覆盖），
+   徽标用绝对定位锚在按钮上，按钮由本规则提供 position:relative 上下文。
+   左侧 .orca-headbar-sidebar-tools（侧栏开关/前进后退）保持原生，不纳入。
+   ========================================================================== */
+#headbar .orca-headbar-user-tools > :not([data-neo-own]),
+#headbar .orca-headbar-global-tools > :not([data-neo-own]) {
+  position: relative;
+}
+.neo-fold-badge {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 15px;
+  height: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  line-height: 1;
+  color: var(--neo-on-primary, #fff);
+  background: var(--neo-accent, #6a85e3);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+  z-index: 5;
+}
+#headbar .orca-headbar-user-tools > :not([data-neo-own]):hover .neo-fold-badge,
+#headbar .orca-headbar-global-tools > :not([data-neo-own]):hover .neo-fold-badge {
+  opacity: 1;
+  pointer-events: auto;
+}
+.neo-fold-badge:hover {
+  transform: scale(1.15);
+}
+
+.neo-drawer-pop {
+  position: fixed;
+  z-index: 2147483000;
+  width: 320px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--neo-menu-bg);
+  color: var(--neo-on-background);
+  border: 1px solid var(--neo-border-soft);
+  box-shadow: var(--orca-shadow-menu, 0 12px 40px rgba(0, 0, 0, 0.35));
+  /* 跟随虎鲸「字体」设置 */
+  font-family: var(--orca-fontfamily-ui, system-ui, -apple-system, "Segoe UI", sans-serif);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.neo-drawer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 6px 8px;
+  font-weight: 600;
+}
+.neo-drawer-head > span:first-child {
+  flex: 1;
+}
+.neo-drawer-actions {
+  display: flex;
+  gap: 6px;
+}
+.neo-drawer-minibtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border: 1px solid var(--neo-border-soft);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--neo-on-background);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: var(--orca-fontfamily-ui, system-ui, -apple-system, "Segoe UI", sans-serif);
+}
+.neo-drawer-minibtn:hover {
+  background: var(--neo-hover);
+}
+.neo-drawer-list {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+}
+.neo-drawer-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.neo-drawer-item:hover {
+  background: var(--neo-hover);
+}
+.neo-drawer-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  pointer-events: none; /* 点击落在 item 上，统一转发 */
+}
+.neo-drawer-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.neo-drawer-unfold {
+  opacity: 0;
+  border: none;
+  background: transparent;
+  color: var(--neo-on-background);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  font-family: var(--orca-fontfamily-ui, system-ui, -apple-system, "Segoe UI", sans-serif);
+}
+.neo-drawer-item:hover .neo-drawer-unfold {
+  opacity: 0.85;
+}
+.neo-drawer-unfold:hover {
+  opacity: 1;
+  background: var(--neo-hover);
+}
+.neo-drawer-empty {
+  padding: 14px 8px;
+  opacity: 0.6;
+  text-align: center;
+  font-size: 12px;
+}

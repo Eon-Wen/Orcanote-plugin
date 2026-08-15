@@ -121,6 +121,14 @@ export const FEATURES: FeatureToggle[] = [
       "缓存编辑器页签改为竖排在编辑器左侧（思源 Neo 同款），拖动右边缘可调宽、双击复位。需先开启「缓存编辑器页签」。",
     defaultValue: false,
   },
+  {
+    key: "pluginDrawer",
+    className: "neo-plugin-drawer",
+    label: "插件图标抽屉",
+    description:
+      "把顶栏越积越多的图标（插件与原生按钮）折叠收纳进一个抽屉按钮：悬停图标点右上角 ▾ 收纳，抽屉里点击图标仍可正常使用，也可随时「取出」放回顶栏原位。收纳状态跨仓库记住。左侧侧栏开关/前进后退不参与。",
+    defaultValue: true,
+  },
 ]
 
 /** 始终可用的非预设项（不随明暗模式变化） */

@@ -34,6 +34,7 @@ import {
 } from "./pageBatchInclude"
 import { installListView, disposeListView } from "./listView"
 import { installBlockMenuCommands, disposeBlockMenuCommands } from "./blockMenuCommands"
+import { installPluginDrawer, disposePluginDrawer } from "./pluginDrawer"
 import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
@@ -178,6 +179,10 @@ function apply() {
     disposeBlockMenuCommands()
   }
 
+  // 插件图标抽屉（运行时开关）：顶栏插件图标折叠收纳
+  if (settings.pluginDrawer === true) installPluginDrawer()
+  else disposePluginDrawer()
+
   // 只有「跟随时间」才需要定时器
   refresher?.start(apply, settings.palette === "followTime")
 }
@@ -306,6 +311,7 @@ export async function unload() {
   disposePageBatchSelect()
   disposeListView()
   disposeBlockMenuCommands()
+  disposePluginDrawer()
   disposeWelcome()
   unsubscribe?.()
   unsubscribe = null

@@ -143,6 +143,7 @@ function NeoMenu() {
       <button
         ref={btnRef as any}
         className="neo-hb-btn"
+        data-neo-own="1"
         onClick={openMenu}
         title="Neo 主题设置"
         aria-label="Neo 主题设置"
