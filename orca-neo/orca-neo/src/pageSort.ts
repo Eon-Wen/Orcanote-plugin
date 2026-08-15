@@ -77,6 +77,17 @@ interface ManualOrders {
 }
 let _manual: ManualOrders = {}
 
+// 手动顺序是否已成功从插件文件读入。插件加载时仓库往往还没打开（get-plugin-file
+// 会失败），未读入前绝不允许把当前 DOM 顺序当「手动基线」快照——否则会用原生顺序
+// 覆盖掉已保存的手动顺序。
+let _manualLoaded = false
+// 上次成功加载手动顺序时的仓库 id；用于检测「仓库切换 / 首次就绪」并触发重载。
+let _lastRepo = ""
+
+function repoKey(): string {
+  return String(orca().state.repo ?? "")
+}
+
 const PLUGIN = "orca-neo"
 
 function settings(): Record<string, any> {
@@ -108,9 +119,20 @@ function manualFileName(): string {
 async function loadManualOrders(): Promise<void> {
   try {
     const raw = await ib()("get-plugin-file", PLUGIN, manualFileName())
-    if (raw) _manual = JSON.parse(raw) ?? {}
+    if (raw) {
+      try {
+        _manual = JSON.parse(raw) ?? {}
+      } catch (e) {
+        // 文件损坏时重置（随后会被手动基线快照自愈覆盖）
+        console.warn("[PAGESORT] 手动顺序文件损坏，已重置", e)
+        _manual = {}
+      }
+    } else {
+      _manual = {}
+    }
+    _manualLoaded = true
   } catch {
-    _manual = {}
+    // 后端不可用（通常是仓库尚未打开）：保持未加载状态，由观察器在侧栏渲染后重试
   }
 }
 
@@ -274,11 +296,14 @@ async function persistContainerOrder(spec: SortListSpec, container: HTMLElement)
 let _dragSpec: SortListSpec | null = null
 let _dragKey: string | null = null
 let _dragContainer: HTMLElement | null = null
+// 拖拽进行中：观察器/重排必须停手——拖拽期间移动被拖元素会直接打断浏览器的拖拽操作
+let _dragging = false
 
 function clearDrag() {
   _dragSpec = null
   _dragKey = null
   _dragContainer = null
+  _dragging = false
   document.querySelectorAll(".neo-pagesort-over").forEach((el) => el.classList.remove("neo-pagesort-over"))
 }
 
@@ -295,6 +320,9 @@ function specOfItem(target: EventTarget | null): { spec: SortListSpec; wrap: HTM
 function onDragStartCapture(e: DragEvent) {
   const hit = specOfItem(e.target)
   if (!hit) return
+  // 只要命中侧栏列表条目就标记拖拽中（不限于手动模式）：期间观察器不得重排，
+  // 否则非手动模式下的原生 include-in 拖拽也会被重排打断
+  _dragging = true
   if (currentSortMode(hit.spec.id) !== "manual") return
   _dragSpec = hit.spec
   _dragContainer = hit.wrap.parentElement
@@ -354,8 +382,14 @@ function scheduleReapply() {
   if (_debounce) clearTimeout(_debounce)
   _debounce = setTimeout(() => {
     _debounce = null
+    if (_dragging) return // 拖拽中不重排（移动被拖元素会打断拖拽）
     if (!anyNonDefaultMode()) return
     if (!anyRootPresent()) return
+    if (!_manualLoaded || repoKey() !== _lastRepo) {
+      // 手动顺序还没成功加载（或仓库刚切换）：先补加载再重排
+      void applyPageSort()
+      return
+    }
     applyAllSorts()
   }, 250)
 }
@@ -363,23 +397,36 @@ function scheduleReapply() {
 // 上次应用的模式（用于检测「离开手动」时快照手动顺序）
 const _prevModes: Record<string, PageSortMode> = { pages: "default", tags: "default" }
 
-/** 应用当前排序模式（设置变更时由 main.ts apply() 调用）。 */
+/** 应用当前排序模式（设置变更时由 main.ts apply() 调用；仓库就绪/切换时由观察器补调）。 */
 export async function applyPageSort(): Promise<void> {
-  try {
-    await loadManualOrders()
-  } catch (e) {
-    console.warn("[PAGESORT] 初始化失败", e)
+  const repo = repoKey()
+  if (repo !== _lastRepo) {
+    // 仓库切换（或插件加载后仓库首次就绪）：清掉上一仓库的状态，模式基线也重置，
+    // 避免用旧仓库的「离开手动」逻辑对新仓库做快照
+    _lastRepo = repo
+    _manual = {}
+    _manualLoaded = false
+    _prevModes.pages = "default"
+    _prevModes.tags = "default"
+  }
+  if (!_manualLoaded) {
+    try {
+      await loadManualOrders()
+    } catch (e) {
+      console.warn("[PAGESORT] 初始化失败", e)
+    }
   }
   let dirty = false
   for (const spec of LISTS) {
     const mode = currentSortMode(spec.id)
     const prev = _prevModes[spec.id] ?? "default"
     if (prev === "manual" && mode !== "manual") {
-      // 离开手动：把当前（手动）顺序快照下来，保证转回手动时顺序不变
-      if (snapshotListOrders(spec)) dirty = true
+      // 离开手动：把当前（手动）顺序快照下来，保证转回手动时顺序不变。
+      // 只在已成功读入存档的前提下快照，防止未加载成功时用原生顺序覆盖存档。
+      if (_manualLoaded && snapshotListOrders(spec)) dirty = true
     } else if (mode === "manual" && !_manual[spec.id]) {
-      // 首次进入手动：以当前顺序为手动基线
-      if (snapshotListOrders(spec)) dirty = true
+      // 首次进入手动：以当前顺序为手动基线（同样要求存档已读入）
+      if (_manualLoaded && snapshotListOrders(spec)) dirty = true
     }
     _prevModes[spec.id] = mode
   }
@@ -392,8 +439,11 @@ export async function applyPageSort(): Promise<void> {
 export function installPageSort() {
   if (_observer) return
   _observer = new MutationObserver(() => {
-    const mode = currentSortMode()
-    if (mode === "default") return
+    // 注意：必须按各列表自己的模式判断（pageSortModePages/Tags），
+    // 不能读旧版共享的 pageSortMode——排序独立化后该键已不存在，
+    // 否则观察器永远以为「默认模式」而不再重排。
+    if (_dragging) return // 拖拽期间任何重排都会打断拖拽
+    if (!anyNonDefaultMode()) return
     if (!anyRootPresent()) return
     scheduleReapply()
   })
