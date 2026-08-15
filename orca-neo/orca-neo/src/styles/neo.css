@@ -1388,6 +1388,15 @@ body.neo-list-line .orca-repr-task .orca-repr-scope-line {
   --orca-border-scope: 1px solid var(--orca-color-scope-line, var(--neo-border-soft));
 }
 
+/* 参考线不深入原生表格 / 白板 / 列表转表格（data-neo-lv）内部：这些容器里
+   的列表子块不显示层级线（线会穿进表格网格 / 白板画布 / 转表网格）。
+   选择器比上面的常显规则多一级类，权重更高、与书写顺序无关。 */
+body.neo-list-line .orca-table2 .orca-repr .orca-repr-scope-line,
+body.neo-list-line .orca-whiteboard .orca-repr .orca-repr-scope-line,
+body.neo-list-line [data-neo-lv] .orca-repr .orca-repr-scope-line {
+  display: none !important;
+}
+
 .orca-repr-scope-line {
   border-color: var(--neo-border-soft);
   transition: border-color var(--neo-transition);

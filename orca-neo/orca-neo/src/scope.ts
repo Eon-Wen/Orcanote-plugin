@@ -21,6 +21,27 @@ const POS_ATTR = "data-neo-scope-pos"
 /** 不画引导线的区域 */
 const POPUP = ".orca-popup, .orca-block-preview-popup"
 
+/** 参考线不深入的容器：原生表格、白板、列表转表格（data-neo-lv）。
+ *  这些容器内部有自己的一套布局（表格网格 / 白板画布 / 转表后的网格），
+ *  参考线画进去会穿线；容器块自身作为列表项时也不往它身上连线
+ *  （其 repr-main 就是整个表格/画布，连到中线等于穿透进容器）。 */
+const EXCLUDE = ".orca-table2, .orca-whiteboard, [data-neo-lv]"
+
+/** 块是否【自身就是】表格/白板块（列表转表格根块靠 closest([data-neo-lv])
+ *  命中自身，无需在此判断）。表格块的 repr 直接带 .orca-repr-table2；
+ *  白板块的标记 .orca-repr-whiteboard-content 藏在 repr-main 里
+ *  （画布 .orca-whiteboard 也在其中），closest 从块往上找会漏掉。 */
+function isContainerBlock(block: HTMLElement): boolean {
+  const repr = ownRepr(block)
+  if (!repr) return false
+  return (
+    repr.matches(".orca-repr-table2") ||
+    !!repr.querySelector(
+      ":scope > .orca-repr-main .orca-repr-whiteboard-content",
+    )
+  )
+}
+
 /** Orca DOM 关键类名（已对照真实 app 包核对） */
 const CLS = {
   block: "orca-block",
@@ -215,6 +236,16 @@ function redraw(): void {
     while (container?.classList.contains(CLS.reprChildren)) {
       const parent = owningBlock(container)
       if (!parent || parent.closest(POPUP)) break
+      // 参考线不深入表格/白板/列表转表格：任一端在这些容器【内部】
+      // （closest 命中），或【自身就是】容器块（isContainerBlock），
+      // 都停下不再往上连——容器块作为列表项时，往它连线会沿其左缘
+      // 一直画到中线，等于穿透进容器。
+      if (
+        parent.closest(EXCLUDE) ||
+        child.closest(EXCLUDE) ||
+        isContainerBlock(parent) ||
+        isContainerBlock(child)
+      ) break
       // 日期块：从日历点进来时它是【页面级条目】（标题就是那个日期），此时
       // 应当从它开始向上展开，让日期标题成为整页列表参考线的源头，而不是在它
       // 下方第一个块处断开。
