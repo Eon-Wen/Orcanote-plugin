@@ -344,6 +344,26 @@ function iconOf(item: RecentItem): string {
   return "ti ti-cube"
 }
 
+/** 页面/块/标签自定义配置的图标：块属性 `_icon`（PropType.Text）。
+ *  与虎鲸原生渲染约定一致（AliasFormatting / 侧栏标签条目）：
+ *  值以 "ti " 开头 = tabler 图标类名；其它 = emoji 或任意字符文本。 */
+function customIconOf(item: RecentItem): { cls?: string; emoji?: string } | null {
+  const block = blockOf(item.viewArgs?.blockId)
+  if (!block) return null
+  const v = block.properties?.find((p: any) => p.name === "_icon")?.value
+  if (v == null || v === "") return null
+  const s = String(v).trim()
+  if (!s) return null
+  return s.startsWith("ti ") ? { cls: s } : { emoji: s }
+}
+
+/** 渲染签名用的图标标识：图标变更也要重建页签 DOM */
+function iconKeyOf(item: RecentItem): string {
+  const c = customIconOf(item)
+  if (c) return c.cls ?? `emoji:${c.emoji}`
+  return iconOf(item)
+}
+
 // ---------------------------------------------------------------- 动作
 
 function goToItem(panelId: string, item: RecentItem) {
@@ -551,7 +571,7 @@ function render() {
     .map(
       (g) =>
         `${g.panelId}${g.focused ? "*" : ""}@${g.currentKey}#` +
-        g.list.map((i) => `${i.key}~${titleOf(i)}`).join(","),
+        g.list.map((i) => `${i.key}~${titleOf(i)}~${iconKeyOf(i)}`).join(","),
     )
     .join("||")
   if (nextSig === sig) return
@@ -577,6 +597,7 @@ function renderGroup(group: Group) {
 
   for (const item of group.list) {
     const title = titleOf(item)
+    const custom = customIconOf(item)
     const tab = document.createElement("div")
     // 每个面板都有自己「正在显示」的那一项：聚焦面板用强调色，其他面板弱化显示
     const isCurrent = item.key === activeKey
@@ -586,8 +607,13 @@ function renderGroup(group: Group) {
     tab.draggable = true
     tab.title = title
 
-    const icon = document.createElement("i")
-    icon.className = `neo-tab-icon ${iconOf(item)}`
+    const icon = document.createElement(custom?.emoji != null ? "span" : "i")
+    icon.className =
+      "neo-tab-icon" +
+      (custom?.emoji != null
+        ? " neo-tab-icon-emoji"
+        : ` ${custom?.cls ?? iconOf(item)}`)
+    if (custom?.emoji != null) icon.textContent = custom.emoji
     tab.appendChild(icon)
 
     const label = document.createElement("span")

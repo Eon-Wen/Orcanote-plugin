@@ -803,6 +803,12 @@ body.neo-browser-tabs #main {
   font-size: 13px;
   opacity: 0.65;
 }
+/* 页面/块/标签自定义的 emoji 图标（块属性 _icon 非 "ti " 开头时按字符渲染） */
+.neo-tab-icon-emoji {
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0.9;
+}
 .neo-tab-active .neo-tab-icon {
   opacity: 1;
 }
