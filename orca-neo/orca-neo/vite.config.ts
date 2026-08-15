@@ -63,6 +63,14 @@ function copyDir(from: string, to: string) {
 
 export default defineConfig({
   plugins: [copyStyles()],
+  // 把 package.json 版本号烘焙进 bundle：欢迎动画用它做「每个版本只庆祝一次」的标记键
+  define: {
+    __NEO_VERSION__: JSON.stringify(
+      (JSON.parse(readFileSync(resolve(root, "package.json"), "utf-8")) as {
+        version: string
+      }).version,
+    ),
+  },
   build: {
     target: "esnext",
     minify: true,

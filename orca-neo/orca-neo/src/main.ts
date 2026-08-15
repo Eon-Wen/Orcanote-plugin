@@ -37,6 +37,7 @@ import { installBlockMenuCommands, disposeBlockMenuCommands } from "./blockMenuC
 import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
+import { installWelcome, disposeWelcome } from "./welcome"
 
 const PLUGIN_NAME = "orca-neo"
 const THEME_NAME = "Neo"
@@ -205,6 +206,9 @@ export async function load() {
     unsubscribe = window.Valtio.subscribe(pluginState, applyIfChanged)
   }
 
+  // 首次启用 Neo 主题的欢迎庆祝：首装/更新后各放一次，Neo 与其它主题来回切换不重放
+  installWelcome()
+
   // 配色下拉按虎鲸明暗模式过滤：初次注册 + 监听明暗切换时重建
   await refreshPaletteSchema()
   modeMql = window.matchMedia("(prefers-color-scheme: dark)")
@@ -302,6 +306,7 @@ export async function unload() {
   disposePageBatchSelect()
   disposeListView()
   disposeBlockMenuCommands()
+  disposeWelcome()
   unsubscribe?.()
   unsubscribe = null
   modeMql?.removeEventListener("change", onModeChange)
