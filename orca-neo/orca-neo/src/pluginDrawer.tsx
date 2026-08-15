@@ -19,6 +19,10 @@
 //    （Orca 官方插件数据接口 set-plugin-data 是仓库维度，跨仓库的全局 UI 偏好不合适；
 //    Orca 自身也用 localStorage 存 UI 偏好）。
 //
+// 抽屉锁：抽屉头部「锁住」按钮。上锁后——抽屉里的图标取不出（「取出」/「全部取出」
+// 禁用）、顶栏按钮的 ▾ 收纳徽标消失（「收纳」/「全部收纳」禁用），图标仍可点击使用；
+// 锁状态同样持久化到 localStorage。fold/unfold 函数入口再挡一道，双保险。
+//
 // 模块顶层不碰 DOM / API（铁律）：React、orca、localStorage 全部惰性到函数里。
 let React: any
 let ReactDOM: any
@@ -39,6 +43,7 @@ function ensureGlobals() {
 const PLUGIN_NAME = "orca-neo"
 const HEADBAR_ID = `${PLUGIN_NAME}.drawer`
 const LS_KEY = "orca-neo.pluginDrawer.folded"
+const LS_KEY_LOCKED = "orca-neo.pluginDrawer.locked"
 // 可收纳面 = 插件按钮容器（user-tools）+ 虎鲸原生按钮容器（global-tools）。
 // 左侧 .orca-headbar-sidebar-tools（侧栏开关/前进后退）是导航必需，不纳入（思源 drawer 同样保留）。
 const TOOLBAR_SEL =
@@ -67,6 +72,7 @@ interface FoldRecord {
 const foldedEls = new WeakSet<HTMLElement>()
 let persisted: FoldRecord[] = []
 let persistedLoaded = false
+let locked = false
 let installed = false
 let observer: MutationObserver | null = null
 let timer = 0
@@ -81,8 +87,10 @@ function loadPersisted() {
   try {
     const raw = window.localStorage.getItem(LS_KEY)
     if (raw) persisted = JSON.parse(raw) as FoldRecord[]
+    locked = window.localStorage.getItem(LS_KEY_LOCKED) === "1"
   } catch {
     persisted = []
+    locked = false
   }
 }
 
@@ -91,6 +99,14 @@ function savePersisted() {
     window.localStorage.setItem(LS_KEY, JSON.stringify(persisted))
   } catch {
     // localStorage 不可用（隐私模式等）时静默降级：本次会话内收纳仍可用
+  }
+}
+
+function saveLocked() {
+  try {
+    window.localStorage.setItem(LS_KEY_LOCKED, locked ? "1" : "0")
+  } catch {
+    // 同上：静默降级，锁仅本次会话生效
   }
 }
 
@@ -175,6 +191,7 @@ function showEl(el: HTMLElement) {
 }
 
 function ensureBadge(el: HTMLElement) {
+  if (locked) return // 上锁：收纳入口整体隐藏
   if (el.querySelector(`:scope > .${BADGE_CLASS}`)) return
   const badge = document.createElement("span")
   badge.className = BADGE_CLASS
@@ -190,6 +207,7 @@ function ensureBadge(el: HTMLElement) {
 }
 
 function fold(el: HTMLElement) {
+  if (locked) return // 上锁：不允许新收纳
   if (foldedEls.has(el) || isOwn(el)) return
   hideEl(el)
   foldedEls.add(el)
@@ -202,6 +220,7 @@ function fold(el: HTMLElement) {
 }
 
 function unfold(el: HTMLElement) {
+  if (locked) return // 上锁：不允许取出
   if (!foldedEls.has(el)) return
   foldedEls.delete(el)
   showEl(el)
@@ -212,6 +231,7 @@ function unfold(el: HTMLElement) {
 }
 
 function foldAll() {
+  if (locked) return
   const toolbar = document.querySelector<HTMLElement>(TOOLBAR_SEL)
   if (!toolbar) return
   for (const el of Array.from(toolbar.children)) {
@@ -220,6 +240,7 @@ function foldAll() {
 }
 
 function unfoldAll() {
+  if (locked) return
   for (const el of currentChildren()) {
     if (foldedEls.has(el)) {
       foldedEls.delete(el)
@@ -316,7 +337,8 @@ function refreshPopupList() {
     takeOut.className = "neo-drawer-unfold"
     takeOut.type = "button"
     takeOut.textContent = "取出"
-    takeOut.title = "取出放回顶栏原位"
+    takeOut.title = locked ? "抽屉已锁定：先解锁才能取出" : "取出放回顶栏原位"
+    takeOut.disabled = locked
     takeOut.addEventListener("click", (e) => {
       e.preventDefault()
       e.stopPropagation()
@@ -378,21 +400,33 @@ function toggleDrawer(anchor: HTMLElement) {
   actions.className = "neo-drawer-actions"
   const foldAllBtn = document.createElement("button")
   foldAllBtn.type = "button"
-  foldAllBtn.className = "neo-drawer-minibtn"
+  foldAllBtn.className = "neo-drawer-minibtn neo-drawer-fold-all"
   foldAllBtn.textContent = "全部收纳"
   foldAllBtn.title = "把顶栏全部插件图标收纳进来"
+  foldAllBtn.disabled = locked
   foldAllBtn.addEventListener("click", () => {
     foldAll()
     refreshPopupList()
   })
   const unfoldAllBtn = document.createElement("button")
   unfoldAllBtn.type = "button"
-  unfoldAllBtn.className = "neo-drawer-minibtn"
+  unfoldAllBtn.className = "neo-drawer-minibtn neo-drawer-unfold-all"
   unfoldAllBtn.textContent = "全部取出"
   unfoldAllBtn.title = "把所有收纳的图标放回顶栏原位"
+  unfoldAllBtn.disabled = locked
   unfoldAllBtn.addEventListener("click", () => {
     unfoldAll()
     refreshPopupList()
+  })
+  const lockBtn = document.createElement("button")
+  lockBtn.type = "button"
+  lockBtn.className = "neo-drawer-minibtn neo-drawer-lock"
+  lockBtn.textContent = locked ? "🔓 解锁" : "🔒 锁住"
+  lockBtn.title = locked
+    ? "解锁抽屉：解锁后才能取出图标、收纳新图标"
+    : "锁住抽屉：锁住后抽屉里的图标取不出，顶栏的 ▾ 收纳入口也会消失"
+  lockBtn.addEventListener("click", () => {
+    setLocked(!locked)
   })
   const closeBtn = document.createElement("span")
   closeBtn.className = "neo-hb-close"
@@ -400,6 +434,7 @@ function toggleDrawer(anchor: HTMLElement) {
   closeBtn.addEventListener("click", closeDrawer)
   actions.appendChild(foldAllBtn)
   actions.appendChild(unfoldAllBtn)
+  actions.appendChild(lockBtn)
   head.appendChild(title)
   head.appendChild(actions)
   head.appendChild(closeBtn)
@@ -421,6 +456,32 @@ function toggleDrawer(anchor: HTMLElement) {
   document.addEventListener("keydown", onDocKeydown, true)
 }
 
+// ── 抽屉锁 ────────────────────────────────────────────────────────────────
+/** 切换锁状态：持久化 + 更新抽屉头部按钮（若开着）+ 全量重扫（移除/恢复 ▾ 徽标、
+ *  刷新条目「取出」按钮的禁用态）。 */
+function setLocked(v: boolean) {
+  if (locked === v) return
+  locked = v
+  saveLocked()
+
+  if (popupEl?.isConnected) {
+    const lockBtn = popupEl.querySelector<HTMLButtonElement>(".neo-drawer-lock")
+    if (lockBtn) {
+      lockBtn.textContent = locked ? "🔓 解锁" : "🔒 锁住"
+      lockBtn.title = locked
+        ? "解锁抽屉：解锁后才能取出图标、收纳新图标"
+        : "锁住抽屉：锁住后抽屉里的图标取不出，顶栏的 ▾ 收纳入口也会消失"
+      lockBtn.classList.toggle("neo-drawer-locked", locked)
+    }
+    const foldAllBtn = popupEl.querySelector<HTMLButtonElement>(".neo-drawer-fold-all")
+    const unfoldAllBtn = popupEl.querySelector<HTMLButtonElement>(".neo-drawer-unfold-all")
+    if (foldAllBtn) foldAllBtn.disabled = locked
+    if (unfoldAllBtn) unfoldAllBtn.disabled = locked
+  }
+
+  rescan() // 会顺带 refreshPopupList 刷新「取出」按钮禁用态
+}
+
 // ── 观察器：补隐藏样式 / 补收纳徽标 / 响应插件的重渲染与增删 ───────────────
 function rescan() {
   for (const el of currentChildren()) {
@@ -434,7 +495,12 @@ function rescan() {
       foldedEls.add(el)
       continue
     }
-    ensureBadge(el)
+    if (locked) {
+      // 上锁：收纳徽标整体移除（React 重渲染补回的徽标也在这里清掉）
+      el.querySelector(`:scope > .${BADGE_CLASS}`)?.remove()
+    } else {
+      ensureBadge(el)
+    }
   }
   refreshPopupList()
 }

@@ -2248,6 +2248,17 @@ body.neo-frostedglass .neo-wc-popup {
 .neo-drawer-minibtn:hover {
   background: var(--neo-hover);
 }
+.neo-drawer-minibtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.neo-drawer-minibtn:disabled:hover {
+  background: transparent;
+}
+.neo-drawer-lock.neo-drawer-locked {
+  color: var(--neo-accent, #6a85e3);
+  border-color: var(--neo-accent, #6a85e3);
+}
 .neo-drawer-list {
   overflow-y: auto;
   display: flex;
@@ -2295,9 +2306,17 @@ body.neo-frostedglass .neo-wc-popup {
 .neo-drawer-item:hover .neo-drawer-unfold {
   opacity: 0.85;
 }
+.neo-drawer-item:hover .neo-drawer-unfold:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .neo-drawer-unfold:hover {
   opacity: 1;
   background: var(--neo-hover);
+}
+.neo-drawer-unfold:disabled:hover {
+  opacity: 0.4;
+  background: transparent;
 }
 .neo-drawer-empty {
   padding: 14px 8px;
