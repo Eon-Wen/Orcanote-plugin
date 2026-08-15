@@ -29,13 +29,19 @@
  * 建立包含块，定位恢复正常，玻璃观感不变。
  * 注:.orca-modal-content 保留元素级 blur——模态不走顶栏 portal,且给它改定位有风险。 */
 
-/* 顶栏弹层定位修正 —— 顶栏「三个点」菜单(.orca-popup)由 JS 以【视口绝对坐标】写入
- * style.top/left，而它基础是 position:absolute、被 portal 进 #headbar（fixed，默认在
- * 视口原点）。任何让 #headbar 原点偏离 (0,0) 的因子（祖先缩放/平移/包含块）都会让这些
- * 视口坐标被错误解释 → 弹层扑到左上角。因其坐标本就是视口级，直接改用 position:fixed
- * 即可正确，且仅作用于 #headbar 内的弹层，不影响编辑器区（.orca-panel 内）弹层。
- * zoom:1 抵消 #headbar 的 zoom 对 fixed 包含块的干扰。 */
-body[class*="neo-"] #headbar .orca-popup {
+/* 顶栏弹层定位修正 —— 只作用于【直接】portal 进 #headbar 的弹层（子选择器 >）。
+ * Orca Popup 把弹层 portal 到「点击目标的 offsetParent」，并按相对该容器写入
+ * style.top/left。顶栏按钮及其容器必须保持 static（见下方插件抽屉的说明），因此
+ * 点击图标/按钮时 offsetParent 恒为 #headbar、弹层是它的直接子元素。#headbar 带
+ * zoom 且默认锚在视口原点 (0,0)，此处坐标与视口坐标等价，position:fixed 可免疫
+ * 任何让 #headbar 原点偏离 (0,0) 的因子（祖先缩放/平移），zoom:1 抵消 #headbar
+ * 的 zoom 对 fixed 包含块的干扰。
+ * 为什么必须限定直接子元素：若弹层 portal 进 #headbar 内更深的元素（如某个插件
+ * 自己给按钮写了 position:relative → offsetParent 变成按钮），其坐标是相对按钮的，
+ * 再套 position:fixed 会被按 #headbar 原点重新解释 → 弹层扑到屏幕左上角
+ * （2026-08-15 实测：抽屉给按钮加 position:relative 后三点菜单复现此 bug）。
+ * 此类弹层保持原生 absolute（相对各自 portal 容器）才自洽。 */
+body[class*="neo-"] #headbar > .orca-popup {
   position: fixed !important;
   zoom: 1 !important;
 }
@@ -2164,14 +2170,15 @@ body.neo-frostedglass .neo-wc-popup {
    插件图标抽屉（需求 14）：把顶栏越积越多的插件图标与原生按钮折叠收纳
    - 收纳徽标：挂在本插件以外的顶栏按钮（插件 + 原生）右上角，悬停才出现
    - 抽屉弹层：与 neo-hb-pop 同款外观，挂在 body
-   说明：不给按钮写 inline style 的位置约束（React 重渲染会覆盖），
-   徽标用绝对定位锚在按钮上，按钮由本规则提供 position:relative 上下文。
+   说明：徽标虽作为子节点插在按钮里，但按钮与两个 tools 容器【都不能】写
+   position:relative —— 一旦按钮成为定位元素，按钮内图标的 offsetParent 就变成
+   按钮本身，Orca Popup 把弹层 portal 到 offsetParent、坐标体系随之换成相对按钮，
+   与上方顶栏弹层修正规则（position:fixed 按 #headbar 原点解释）冲突，右上角
+   三点菜单会扑到屏幕左上角（2026-08-15 实测根因）。徽标因此用 JS 计算 left/top
+   （按钮相对 #headbar 的 offsetLeft/offsetTop，本地坐标、zoom 免疫），由
+   pluginDrawer.tsx 的 placeBadge 每次重扫校准。
    左侧 .orca-headbar-sidebar-tools（侧栏开关/前进后退）保持原生，不纳入。
    ========================================================================== */
-#headbar .orca-headbar-user-tools > :not([data-neo-own]),
-#headbar .orca-headbar-global-tools > :not([data-neo-own]) {
-  position: relative;
-}
 .neo-fold-badge {
   position: absolute;
   top: -3px;

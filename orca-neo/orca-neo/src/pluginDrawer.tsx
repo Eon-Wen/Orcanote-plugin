@@ -190,20 +190,36 @@ function showEl(el: HTMLElement) {
   el.removeAttribute("data-neo-orig-style")
 }
 
+function placeBadge(badge: HTMLElement, el: HTMLElement) {
+  // 徽标是 position:absolute，包含块 = #headbar（按钮与 tools 容器必须保持 static：
+  // 一旦给按钮写 position:relative，按钮内图标的 offsetParent 变成按钮，Orca Popup
+  // 把弹层 portal 到 offsetParent、坐标换成相对按钮，右上角菜单会扑到左上角 ——
+  // 见 neo-plus.css 顶部「顶栏弹层定位修正」注释）。故不能用 CSS 锚在按钮上，
+  // 改用按钮相对 #headbar 的 offsetLeft/offsetTop 计算（本地坐标，zoom 免疫）。
+  const s = badge.style
+  s.setProperty("left", `${el.offsetLeft + el.offsetWidth - 12}px`)
+  s.setProperty("top", `${el.offsetTop - 3}px`)
+  s.setProperty("right", "auto")
+  s.setProperty("bottom", "auto")
+}
+
 function ensureBadge(el: HTMLElement) {
   if (locked) return // 上锁：收纳入口整体隐藏
-  if (el.querySelector(`:scope > .${BADGE_CLASS}`)) return
-  const badge = document.createElement("span")
-  badge.className = BADGE_CLASS
-  badge.textContent = "▾"
-  badge.title = "收纳进抽屉"
-  badge.addEventListener("click", (e) => {
-    // 不冒泡到按钮本身，避免误触发该插件自己的点击逻辑
-    e.preventDefault()
-    e.stopPropagation()
-    fold(el)
-  })
-  el.appendChild(badge)
+  let badge = el.querySelector<HTMLElement>(`:scope > .${BADGE_CLASS}`)
+  if (!badge) {
+    badge = document.createElement("span")
+    badge.className = BADGE_CLASS
+    badge.textContent = "▾"
+    badge.title = "收纳进抽屉"
+    badge.addEventListener("click", (e) => {
+      // 不冒泡到按钮本身，避免误触发该插件自己的点击逻辑
+      e.preventDefault()
+      e.stopPropagation()
+      fold(el)
+    })
+    el.appendChild(badge)
+  }
+  placeBadge(badge, el) // 每次重扫都校准位置（图标增删/窗口缩放后保持贴角）
 }
 
 function fold(el: HTMLElement) {
