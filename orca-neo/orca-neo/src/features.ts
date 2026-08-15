@@ -175,6 +175,9 @@ export function applyFeatures(settings: NeoSettings) {
   if (taskShape !== "default" && (TASK_MASK_SHAPES as readonly string[]).includes(taskShape)) {
     body.classList.add("neo-task-mask", `neo-task-shape-${taskShape}`)
   }
+
+  // 页签圆角：「直角」切 body.neo-tab-sharp（neo-plus.css 把页签 border-radius 归零）
+  body.classList.toggle("neo-tab-sharp", (settings.tabCorners ?? "rounded") === "sharp")
 }
 
 /* --------------------------------------------------------------------------
@@ -454,7 +457,7 @@ export const typeSound = new TypeSound()
 export function cleanupDom() {
   const body = document.body
   for (const f of FEATURES) body.classList.remove(f.className)
-  body.classList.remove("neo-texture", "neo-custom-bg", "neo-task-mask")
+  body.classList.remove("neo-texture", "neo-custom-bg", "neo-task-mask", "neo-tab-sharp")
   for (const cls of Array.from(body.classList)) {
     if (cls.startsWith("neo-texture-") || cls.startsWith("neo-task-shape-")) {
       body.classList.remove(cls)

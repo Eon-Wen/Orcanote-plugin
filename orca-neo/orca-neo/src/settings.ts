@@ -320,6 +320,17 @@ export const SETTINGS_SCHEMA: SettingsSchema = {
       { label: "星形", value: "star" },
     ],
   },
+  tabCorners: {
+    type: "singleChoice",
+    label: "页签圆角",
+    description:
+      "顶部缓存编辑器页签的形状。「圆角」为默认的柔和圆角样式，「直角」为方方正正的四角。",
+    defaultValue: "rounded",
+    choices: [
+      { label: "圆角（默认）", value: "rounded" },
+      { label: "直角", value: "sharp" },
+    ],
+  },
   wordCountTag: {
     type: "string",
     label: "写作标签",
@@ -367,6 +378,7 @@ export interface NeoSettings {
   texture: string
   textureOpacity: number
   taskShape: string
+  tabCorners: string
   backgroundImage: string
   backgroundVeil: number
   [key: string]: unknown

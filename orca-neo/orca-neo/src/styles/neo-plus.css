@@ -672,6 +672,11 @@ body.neo-browser-tabs #main {
   background-color: transparent;
   transition: background-color var(--neo-transition, 0.15s);
 }
+/* 页签圆角可选项：「直角」时四角归零（激活态顶部高光 ::before 用
+   border-radius: inherit 自动跟随，无需单独处理） */
+body.neo-tab-sharp .neo-tab {
+  border-radius: 0;
+}
 .neo-tab:active {
   cursor: grabbing;
 }
