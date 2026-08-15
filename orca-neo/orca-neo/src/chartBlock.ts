@@ -55,6 +55,20 @@ export function chartOfBlock(blockId: number): ChartConfig | null {
   }
 }
 
+/** 收集一批待删块各自关联的图表块 id（去重）。图表块是表格的兄弟块（insertBlock
+ *  "after" 的 parent/left 语义），原生删除只递归删表格子树、不会级联到图表块，
+ *  删表时需把这些 id 并入删除清单，否则图表残留到刷新才消失。 */
+export function chartBlockIdsOf(blockIds: number[]): number[] {
+  const out: number[] = []
+  for (const id of blockIds) {
+    const cfg = chartOfBlock(id)
+    if (cfg && Number.isFinite(cfg.chartBlockId) && !out.includes(cfg.chartBlockId)) {
+      out.push(cfg.chartBlockId)
+    }
+  }
+  return out
+}
+
 /** 写内嵌图表配置（type: 1 = Text，value 必须字符串，SQLite bind 教训）。 */
 export async function setChartOfBlock(blockId: number, config: ChartConfig): Promise<void> {
   try {

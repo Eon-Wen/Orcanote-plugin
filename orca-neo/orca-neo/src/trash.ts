@@ -13,6 +13,8 @@
  * 数据安全：快照没存好就**不放行删除**（fail-closed）——宁可这次删不掉，也不丢数据。
  */
 
+import { chartBlockIdsOf } from "./chartBlock"
+
 const PLUGIN_NAME = "orca-neo"
 
 /** 拦截器保存的原始 invokeBackend；所有内部后端调用都走它，彻底绕开包装、无递归。 */
@@ -89,18 +91,70 @@ export function uninstallTrashInterceptor() {
 }
 
 // ---------------------------------------------------------------------------
-// 删除拦截：先快照顶层页面进回收站，再放行真删
+// 删除拦截：图表联动 → 顶层页面快照进回收站 → 放行真删 → 渲染层同步
 // ---------------------------------------------------------------------------
+
+/** 把已真删的图表块从渲染层 state 移除（连同其在 state 中的子块），并按原生
+ *  deleteBlocks 命令同款语义广播给其它窗口。app 的命令层只清理它自己传入的 id，
+ *  不会清理我们追加的图表块；BroadcastChannel 又不会回显给发送窗口，
+ *  所以本地窗口靠这里删 state 驱动 React 立即消失，跨窗口一致性靠广播。 */
+function dropBlocksFromState(ids: number[]) {
+  if (ids.length === 0) return
+  const blocks = orca.state.blocks as Record<string | number, any>
+  const walk = (id: number) => {
+    const b = blocks[id]
+    if (b == null) return
+    if (Array.isArray(b.children)) {
+      for (const c of b.children) {
+        if (typeof c === "number") walk(c)
+      }
+    }
+    blocks[id] = void 0
+  }
+  const dropped: number[] = []
+  for (const id of ids) {
+    const b = blocks[id]
+    // 有反链的块后端不真删（只摘 parent），state 由后端返回的更新块写回 → 跳过
+    if (b != null && (b.backRefs?.length ?? 0) === 0) {
+      dropped.push(id)
+      walk(id)
+    }
+  }
+  if (dropped.length > 0) {
+    try {
+      orca.broadcasts?.broadcast("orca.delete-blocks", dropped)
+    } catch (e) {
+      console.warn("[TRASH] 广播图表块删除失败：", e)
+    }
+  }
+}
 
 async function interceptDelete(args: any[]): Promise<any> {
   const ib = backend()
-  if (!trashEnabled()) {
-    return ib("delete-blocks", ...args)
-  }
   const blockIds: number[] = Array.isArray(args[0]) ? args[0] : []
   const repoId = orca.state.repo
 
-  // 1) 先对所有顶层页面抓快照存回收站（任一失败则整体抛错 → 不放行删除）
+  // 表格删除联动（与回收站开关无关，属数据一致性）：图表块是表格的兄弟块，
+  // 原生删除只删表格子树 → 把 _chart 指向的图表块 id 并入删除清单一并真删
+  let chartIds: number[] = []
+  if (blockIds.length > 0) {
+    try {
+      chartIds = chartBlockIdsOf(blockIds).filter((id) => !blockIds.includes(id))
+    } catch (e) {
+      console.warn("[TRASH] 收集关联图表块失败，本次删除不联动：", e)
+    }
+  }
+  const deleteArgs: any[] =
+    chartIds.length > 0 ? [[...blockIds, ...chartIds], ...args.slice(1)] : args
+
+  if (!trashEnabled()) {
+    const res = await ib("delete-blocks", ...deleteArgs)
+    dropBlocksFromState(chartIds)
+    return res
+  }
+
+  // 1) 先对所有顶层页面抓快照存回收站（任一失败则整体抛错 → 不放行删除）。
+  //    快照只用原始 ids——图表块是图片块，不可能进回收站。
   for (const id of blockIds) {
     let blk: any = null
     try {
@@ -115,8 +169,10 @@ async function interceptDelete(args: any[]): Promise<any> {
     }
   }
 
-  // 2) 快照全部成功后，才真正删除（原块从 FTS 移除 → 搜不到）
-  return ib("delete-blocks", ...args)
+  // 2) 快照全部成功后，才真正删除（含追加的图表块；原块从 FTS 移除 → 搜不到）
+  const res = await ib("delete-blocks", ...deleteArgs)
+  dropBlocksFromState(chartIds)
+  return res
 }
 
 /**
