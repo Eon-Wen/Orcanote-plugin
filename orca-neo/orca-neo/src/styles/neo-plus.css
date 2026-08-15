@@ -78,6 +78,22 @@ body.neo-frostedglass .orca-modal-content {
   }
 }
 
+/* 斜杠命令菜单排除：毛玻璃的半透明 + 模糊会与页面编辑器文字透叠、看不清。
+   斜杠菜单 DOM = .orca-popup（外壳）> .orca-menu.orca-slash-commands（菜单本体），
+   两层都命中上面的毛玻璃规则；这里把本体、外壳（:has 定位）以及菜单内就地渲染的
+   子菜单弹层（.orca-slash-commands 内的 .orca-popup）全部还原为不透明底、
+   并移除各自的 ::before 模糊层，保持原生观感。 */
+body.neo-frostedglass .orca-slash-commands,
+body.neo-frostedglass .orca-popup:has(.orca-slash-commands),
+body.neo-frostedglass .orca-slash-commands .orca-popup {
+  background-color: var(--orca-color-bg-1) !important;
+}
+body.neo-frostedglass .orca-slash-commands::before,
+body.neo-frostedglass .orca-popup:has(.orca-slash-commands)::before,
+body.neo-frostedglass .orca-slash-commands .orca-popup::before {
+  content: none !important;
+}
+
 /* 侧栏排除：#sidebar 内一律不做「模糊」型毛玻璃。
    （侧栏里就地渲染的菜单/弹层也算侧栏内容，一并清掉模糊并还原不透明底，
    否则只清模糊会剩下半透明底，反而更糊。）
