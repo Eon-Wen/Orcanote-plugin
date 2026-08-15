@@ -659,12 +659,17 @@ async function celebrateIfComplete(
     /* 读不到就当从未庆祝过 */
   }
   if (celebrated === target) return
-  fireworks()
+  // 先记录再放动画：动画开关关闭时也记录，重新打开不会补放旧目标的动画
   try {
     await backend("set-plugin-data", PLUGIN_NAME, key, String(target))
   } catch (e) {
     console.warn("[WC] 记录庆祝状态失败：", e)
   }
+  const settings = (orca as any).state?.plugins?.[PLUGIN_NAME]?.settings as
+    | Record<string, unknown>
+    | undefined
+  if ((settings?.confettiEnabled as boolean | undefined) === false) return
+  fireworks()
 }
 
 async function openPopup(dot: HTMLElement): Promise<void> {

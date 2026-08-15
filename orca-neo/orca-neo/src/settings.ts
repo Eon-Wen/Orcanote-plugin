@@ -106,6 +106,14 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: true,
   },
   {
+    key: "confettiEnabled",
+    className: "neo-confetti",
+    label: "庆祝动画",
+    description:
+      "写作目标达成时播放全屏彩带庆祝动画。关闭后不再播放（达成记录仍会保存，重新打开也不会补放旧目标的动画）。",
+    defaultValue: true,
+  },
+  {
     key: "verticalTabs",
     className: "neo-vertical-tabs",
     label: "垂直页签",
