@@ -106,6 +106,14 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: false,
   },
   {
+    key: "whiteboardBg",
+    className: "neo-whiteboard-bg",
+    label: "白板背景跟随主题",
+    description:
+      "白板画布底色跟随 Neo 配色方案实时变化（配色 / 明暗 / 饱和度一变，白板底色立刻跟随）。关闭后白板恢复原生底色。",
+    defaultValue: false,
+  },
+  {
     key: "wordCount",
     className: "neo-word-count",
     label: "写作进度统计",

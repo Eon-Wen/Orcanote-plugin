@@ -2305,3 +2305,20 @@ body.neo-frostedglass .neo-wc-popup {
   text-align: center;
   font-size: 12px;
 }
+
+/* --------------------------------------------------------------------------
+   白板背景跟随主题色（需求 19）：JS 已把内嵌 Excalidraw 的 viewBackgroundColor
+   置为 transparent（画布不再自绘底色、露出容器背景），这里把 Neo 主题底色垫在
+   画布容器 .excalidraw 上。颜色走 var(--neo-background)（预设配色 / 自定义主题
+   色两套链路都会解析），主题一变白板立即跟随；关闭功能即移除本类，画布恢复
+   原生观感（透明底露出页面底色）。
+   -------------------------------------------------------------------------- */
+body.neo-whiteboard-bg .orca-whiteboard .excalidraw {
+  background-color: var(--neo-background, #ffffff) !important;
+}
+
+/* 白板背景跟随主题色时，画布与页面底色融为一体、白板轮廓消失——
+   给白板块补一圈主题色描边（薰衣草主题 = 紫色边），编辑态全屏时不描 */
+body.neo-whiteboard-bg .orca-whiteboard:not(.orca-maximized) {
+  border: 1px solid var(--neo-primary, #6a85e3) !important;
+}

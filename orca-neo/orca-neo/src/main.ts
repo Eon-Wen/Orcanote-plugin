@@ -39,6 +39,7 @@ import { openRefMigrateDialog } from "./refMigrateDialog"
 import { enableTabs, disableTabs } from "./tabs"
 import { enableWordCount, disableWordCount } from "./wordCount"
 import { installWelcome, disposeWelcome } from "./welcome"
+import { enableWhiteboardBg, disableWhiteboardBg, disposeWhiteboardBg } from "./whiteboard"
 
 const PLUGIN_NAME = "orca-neo"
 const THEME_NAME = "Neo"
@@ -135,6 +136,10 @@ function apply() {
   // 浏览器式页签条：顶部横排页签 + 拖拽分栏
   if (settings.browserTabs === true) enableTabs()
   else disableTabs()
+
+  // 白板背景跟随主题色：画布置透明 + CSS 垫主题底色（运行时开关）
+  if (settings.whiteboardBg === true) enableWhiteboardBg()
+  else disableWhiteboardBg()
 
   // 写作进度统计：写作子标签旁的圆点 + 字数/目标完成度面板
   if (settings.wordCount === true) {
@@ -324,6 +329,7 @@ export async function unload() {
   typeSound.disable()
   disableTabs()
   disableWordCount()
+  disposeWhiteboardBg()
   stopScopeHighlight()
   stopColorSidebar()
   removePlusStyles()
