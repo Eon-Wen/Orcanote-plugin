@@ -1552,52 +1552,51 @@ body.neo-frostedglass .neo-wc-popup {
 .neo-pagesel-btn:hover {
   background: rgba(79, 124, 255, 0.12);
 }
-.neo-pagesel-picker {
-  width: 420px;
-  max-width: 92vw;
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  background: var(--neo-surface, #fff);
-  color: var(--neo-text, #1f2329);
-  border-radius: 14px;
-  padding: 16px;
-  font-size: 14px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.28);
+/* 批量包含于 · 目标选择弹窗（骨架复用 .neo-refmig-pop，见上文批量转引用） */
+.neo-pagesel-sec {
+  margin-bottom: 12px;
 }
-.neo-pagesel-picker-list {
-  flex: 1;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  margin-top: 4px;
-  border: 1px solid var(--neo-border-soft, rgba(127, 127, 127, 0.18));
-  border-radius: 8px;
+.neo-pagesel-sec:last-child {
+  margin-bottom: 0;
 }
-.neo-pagesel-picker-item {
-  padding: 7px 10px;
+.neo-pagesel-sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--neo-border, rgba(127, 127, 127, 0.3));
+}
+.neo-pagesel-sec-count {
+  font-weight: 400;
+  font-size: 12px;
+  opacity: 0.6;
+}
+.neo-pagesel-targetrow {
   cursor: pointer;
-  border-bottom: 1px solid var(--neo-border-soft, rgba(127, 127, 127, 0.14));
 }
-.neo-pagesel-picker-item:last-child {
-  border-bottom: none;
-}
-.neo-pagesel-picker-item:hover {
+.neo-pagesel-targetrow:hover {
   background: rgba(127, 127, 127, 0.12);
 }
-.neo-pagesel-picker-item-name {
-  font-size: 13px;
+.neo-pagesel-selbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.neo-pagesel-selinfo {
+  flex: 1;
+  font-size: 12px;
+  opacity: 0.75;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.neo-pagesel-picker-item-path {
-  font-size: 11px;
-  opacity: 0.55;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.neo-pagesel-selactions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .neo-pagesel-picker-empty {
   padding: 12px 10px;
