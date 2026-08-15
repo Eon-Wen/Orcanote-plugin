@@ -407,8 +407,9 @@ body.neo-fusion .orca-panels-column > .orca-panel:not(:last-child) {
    模式可不同。最终不透明度 = --neo-texture-base × --neo-texture-opacity（用户“纹理
    强度”乘数，默认 1）。
 
-   z-index 取 9999：高于正文内容、低于顶部插件栏弹层（.neo-hb-pop 为 2^31 量级），
-   因此纹理铺满整窗但不会盖住设置弹层。
+   z-index 取 2147483001：高于一切正文/侧栏内容与 Neo 弹层（.neo-hb-pop / 回收站 /
+   图表弹层均为 2^31 量级），纹理铺满整窗、设置弹层也一并覆盖（pointer-events:none，
+   不影响任何点击）。
    -------------------------------------------------------------------------- */
 body.neo-texture::before {
   content: "";
@@ -417,7 +418,7 @@ body.neo-texture::before {
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 9999;
+  z-index: 2147483001;
   background-image: var(--neo-texture-image, none);
   background-repeat: var(--neo-texture-repeat, repeat);
   background-size: var(--neo-texture-size, auto);
@@ -502,7 +503,8 @@ body.neo-custom-bg .orca-panel::before {
   color: var(--neo-on-background);
   border: 1px solid var(--neo-border-soft);
   box-shadow: var(--orca-shadow-menu, 0 12px 40px rgba(0, 0, 0, 0.35));
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* 跟随虎鲸「字体」设置（--orca-fontfamily-ui 由应用写入，改动实时生效） */
+  font-family: var(--orca-fontfamily-ui, system-ui, -apple-system, "Segoe UI", sans-serif);
   font-size: 13px;
   line-height: 1.4;
 }
@@ -595,6 +597,7 @@ body.neo-custom-bg .orca-panel::before {
   border: 1px solid var(--neo-border-soft);
   border-radius: 6px;
   padding: 4px 6px;
+  font-family: var(--orca-fontfamily-ui, inherit);
   font-size: 12px;
 }
 .neo-hb-field input[type="text"]::placeholder {
