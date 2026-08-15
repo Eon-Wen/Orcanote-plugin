@@ -84,6 +84,8 @@ function isFusion() {
  * 按当前形态决定页签条的挂载位置：
  * 融合 → 插入 #headbar 内部（插件图标 user-tools 之前，flex 布局让它占满中间）；
  * 否则 → 放在 #headbar 之后（body 下，独立一条）。
+ * 同时负责初始挂载：bar 刚创建时还没进 DOM（isConnected 为 false），
+ * 必须在这里挂到 #headbar 之后，否则页签条要等一次融合开关才会被带出来。
  * headbar 是 React 渲染的容器，重渲染会抹掉外来节点，因此调用方需配合观察器补回。
  */
 function mountBar() {
@@ -98,7 +100,8 @@ function mountBar() {
       headbar.querySelector(".orca-headbar-global-tools")
     if (anchor) headbar.insertBefore(bar, anchor)
     else headbar.appendChild(bar)
-  } else if (!wantsInside && isInside) {
+  } else if (!wantsInside && (isInside || !bar.isConnected)) {
+    // 从融合切回，或初始挂载（bar 尚未进 DOM）→ 都放到 #headbar 之后
     headbar.insertAdjacentElement("afterend", bar)
   }
 }
