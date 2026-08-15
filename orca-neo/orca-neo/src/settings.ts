@@ -77,6 +77,14 @@ export const FEATURES: FeatureToggle[] = [
     defaultValue: true,
   },
   {
+    key: "headbarFusion",
+    className: "neo-headbar-fusion",
+    label: "顶栏融合",
+    description:
+      "参考思源「页签融合至顶栏」：把缓存编辑器页签条移入顶栏、与插件图标同一栏（图标始终在右、页签接近时渐隐，衔接处柔和模糊）。开启后垂直页签暂不生效，关闭即恢复。",
+    defaultValue: false,
+  },
+  {
     key: "ide",
     className: "neo-ide",
     label: "IDE 风格",
@@ -118,7 +126,7 @@ export const FEATURES: FeatureToggle[] = [
     className: "neo-vertical-tabs",
     label: "垂直页签",
     description:
-      "缓存编辑器页签改为竖排在编辑器左侧（思源 Neo 同款），拖动右边缘可调宽、双击复位。需先开启「缓存编辑器页签」。",
+      "缓存编辑器页签改为竖排在编辑器左侧（思源 Neo 同款），拖动右边缘可调宽、双击复位。需先开启「缓存编辑器页签」。顶栏融合开启时暂不生效，关闭融合即恢复。",
     defaultValue: false,
   },
   {

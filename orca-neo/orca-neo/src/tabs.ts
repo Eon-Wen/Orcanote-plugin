@@ -49,6 +49,7 @@ let dropHint: HTMLElement | null = null
 let observer: MutationObserver | null = null
 let classObserver: MutationObserver | null = null
 let geoObserver: ResizeObserver | null = null
+let fusionObserver: MutationObserver | null = null
 let unsubState: (() => void) | null = null
 let rafPending = false
 let dragging = false
@@ -67,11 +68,52 @@ let dragPayload: { panelId: string; key: string } | null = null
 // #sidebar 宽度可折叠/可拖拽（还有 vibrant 模式的 8px 外边距），
 // 所以不写死宽度，而是实时把 #main 的边界写进 CSS 变量。
 function isVertical() {
-  return document.body.classList.contains("neo-vertical-tabs")
+  // 顶栏融合开启时页签条并入 headbar，竖排形态暂不生效（CSS 同样以融合优先）
+  return (
+    document.body.classList.contains("neo-vertical-tabs") &&
+    !isFusion()
+  )
+}
+
+/** 顶栏融合：页签条移入 #headbar、与插件图标同栏（参考思源「页签融合至顶栏」） */
+function isFusion() {
+  return document.body.classList.contains("neo-headbar-fusion")
+}
+
+/**
+ * 按当前形态决定页签条的挂载位置：
+ * 融合 → 插入 #headbar 内部（插件图标 user-tools 之前，flex 布局让它占满中间）；
+ * 否则 → 放在 #headbar 之后（body 下，独立一条）。
+ * headbar 是 React 渲染的容器，重渲染会抹掉外来节点，因此调用方需配合观察器补回。
+ */
+function mountBar() {
+  if (!bar) return
+  const headbar = document.getElementById("headbar")
+  if (!headbar) return
+  const wantsInside = isFusion() && !isVertical()
+  const isInside = bar.parentElement === headbar
+  if (wantsInside && !isInside) {
+    const anchor =
+      headbar.querySelector(".orca-headbar-user-tools") ??
+      headbar.querySelector(".orca-headbar-global-tools")
+    if (anchor) headbar.insertBefore(bar, anchor)
+    else headbar.appendChild(bar)
+  } else if (!wantsInside && isInside) {
+    headbar.insertAdjacentElement("afterend", bar)
+  }
 }
 
 function syncGeometry() {
   if (!bar) return
+  // 融合时页签条在 headbar flex 流内，位置由布局决定，不写边界变量
+  if (isFusion() && !isVertical()) {
+    const s = document.body.style
+    s.removeProperty("--neo-tabbar-left")
+    s.removeProperty("--neo-tabbar-right")
+    s.removeProperty("--neo-tabbar-top")
+    s.removeProperty("--neo-tabbar-bottom")
+    return
+  }
   const main = document.getElementById("main")
   if (!main) return
   const r = main.getBoundingClientRect()
@@ -702,7 +744,7 @@ export function enableTabs() {
   if (!headbar) return
   bar = document.createElement("div")
   bar.className = "neo-tabbar"
-  headbar.insertAdjacentElement("afterend", bar)
+  mountBar()
 
   // 竖排时的宽度调整手柄（横排时由 CSS 隐藏）
   restoreBarWidth()
@@ -749,12 +791,21 @@ export function enableTabs() {
   if (sidebar) geoObserver.observe(sidebar)
   window.addEventListener("resize", syncGeometry)
   document.addEventListener("transitionend", syncGeometry)
-  // 横排 ↔ 竖排切换（body class 变化）后几何完全不同，必须重算
-  classObserver = new MutationObserver(syncGeometry)
+  // 横排 ↔ 竖排 / 顶栏融合开关切换（body class 变化）后几何与挂载位置都不同，必须重算/重挂
+  classObserver = new MutationObserver(() => {
+    syncGeometry()
+    mountBar()
+  })
   classObserver.observe(document.body, {
     attributes: true,
     attributeFilter: ["class"],
   })
+
+  // 顶栏融合：bar 是插进 #headbar 的外来节点，React 重渲染会抹掉它，这里补回
+  fusionObserver = new MutationObserver(() => {
+    if (isFusion() && bar && headbar.contains(bar) === false) mountBar()
+  })
+  fusionObserver.observe(headbar, { childList: true })
 }
 
 export function disableTabs() {
@@ -772,6 +823,8 @@ export function disableTabs() {
   document.removeEventListener("transitionend", syncGeometry)
   classObserver?.disconnect()
   classObserver = null
+  fusionObserver?.disconnect()
+  fusionObserver = null
   document.body.style.removeProperty("--neo-tabbar-left")
   document.body.style.removeProperty("--neo-tabbar-right")
   document.body.style.removeProperty("--neo-tabbar-top")

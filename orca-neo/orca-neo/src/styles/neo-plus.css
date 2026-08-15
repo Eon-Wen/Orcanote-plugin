@@ -950,6 +950,50 @@ body.neo-vertical-tabs.neo-browser-tabs .neo-tabbar-resize:hover::after {
 }
 
 /* --------------------------------------------------------------------------
+   顶栏融合 —— 参考思源「页签融合至顶栏」（Neo 主题同款手法）：
+   页签条由 tabs.ts 移入 #headbar 内部、排在插件图标（user-tools）之前，
+   flex:1 占满中间 → 页签与图标同栏、图标始终在右。
+   - 图标在页签条右侧自然分层（flex 顺序），页签条右端 mask 渐隐，
+     页签延伸到图标附近时柔和淡出，衔接处无生硬边界；
+   - headbar 是拖拽区（app-region:drag），页签条必须 no-drag 才能点击；
+   - 本块写在竖排规则之后：两者同特异性时按顺序，融合优先于竖排。
+   -------------------------------------------------------------------------- */
+body.neo-headbar-fusion.neo-browser-tabs #main {
+  margin-top: var(--orca-height-headbar);
+  margin-left: 0;
+}
+body.neo-headbar-fusion .neo-tabbar {
+  position: static;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  left: auto;
+  width: auto;
+  height: var(--neo-tabbar-h);
+  flex: 1 1 auto;
+  min-width: 0;
+  z-index: auto;
+  margin-left: var(--orca-spacing-md);
+  padding: 0 4px;
+  background-color: transparent;
+  border-right: none;
+  -webkit-app-region: no-drag;
+  /* 右端与插件图标衔接处渐隐（思源 Neo 的 --mask-stop-end 同款效果） */
+  -webkit-mask-image: linear-gradient(
+    to right,
+    black,
+    black calc(100% - 44px),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    black,
+    black calc(100% - 44px),
+    transparent
+  );
+}
+
+/* --------------------------------------------------------------------------
    写作进度统计 —— 元·主·Express 子标签旁的小圆环 + 统计弹层（见 src/wordCount.ts）
    -------------------------------------------------------------------------- */
 /* 标签旁的小圆环（点击展开统计） */
