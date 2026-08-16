@@ -54,13 +54,23 @@ function watchToolbar(toolbar: HTMLElement) {
 let _bodyObserver: MutationObserver | null = null
 let _mousedownDelegate: ((e: MouseEvent) => void) | null = null
 let _clickDelegate: ((e: MouseEvent) => void) | null = null
+let _debounce: ReturnType<typeof setTimeout> | null = null
 
-function onBodyChange() {
+function scanToolbars() {
   document.querySelectorAll(TOOLBAR_SEL).forEach((t) => {
     const el = t as HTMLElement
     injectInto(el)
     if (!(el as any).__neoRefMigWatch) watchToolbar(el)
   })
+}
+
+/** body 级观察器回调：防抖合并高频 DOM 变更后再扫描（按钮注入晚一瞬，肉眼不可感知） */
+function onBodyChange() {
+  if (_debounce) clearTimeout(_debounce)
+  _debounce = setTimeout(() => {
+    _debounce = null
+    scanToolbars()
+  }, 150)
 }
 
 /** document 级 mousedown 委托：按下即开弹窗（先于任何 React 重渲染）。 */
@@ -96,7 +106,7 @@ function onDocClick(e: MouseEvent) {
 
 export function installRefMigrateInjector() {
   if (_bodyObserver) return
-  onBodyChange()
+  scanToolbars()
   _bodyObserver = new MutationObserver(onBodyChange)
   _bodyObserver.observe(document.body, { childList: true, subtree: true })
   _mousedownDelegate = onDocMouseDown
@@ -108,6 +118,8 @@ export function installRefMigrateInjector() {
 export function disposeRefMigrateInjector() {
   _bodyObserver?.disconnect()
   _bodyObserver = null
+  if (_debounce) clearTimeout(_debounce)
+  _debounce = null
   if (_mousedownDelegate) {
     document.removeEventListener("mousedown", _mousedownDelegate, true)
     _mousedownDelegate = null
