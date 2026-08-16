@@ -15,6 +15,8 @@
  * 最顶端数据库名称（#4）：彩色，背景不变（由 neo.css 处理）。
  */
 
+import { isPageSortDragging } from "./pageSort"
+
 const ITEM_SELECTORS = [
   "#sidebar .orca-fav-item-item", // 收藏
   "#sidebar .orca-aliased-block-item", // 页面（别名块树，与收藏不同组件）
@@ -160,12 +162,25 @@ let timer = 0
 // 暂停同步上色、回退 120ms 防抖调度。修复 13 把 childList 改成同步 paint 后，
 // 拖拽期间的同步写 DOM 会打断拖拽；旧版防抖 paint 落在拖拽中途从不打断拖拽（历史验证）。
 // drop/dragend 在观察器微任务之前同步释放，drop 后的重绘仍同步、颜色即时正确。
+//
+// 「拖拽中」有两个来源：
+//  - pageSort 的统一标记 isPageSortDragging()：指针自绘拖拽 + 原生 include-in 拖拽。
+//    手动模式会 cancel 原生 dragstart（pageSort 的 onDragStartCapture），取消后浏览器
+//    不再派发 drop/dragend——只有这个标记能覆盖拖拽全程。
+//  - 本模块自己的原生拖拽监听（pageSort 开关关闭时的兜底）。
+// 注意：同节点的捕获监听都会执行，手动拖拽时本监听也会先跑到。若在这里直接置位，
+// drop/dragend 永远不来、标记卡死 → 折叠/展开永远走防抖、新条目先无色后闪彩色
+// （历史闪帧回归）。所以置位拖到微任务里：pageSort 的 preventDefault 已同步执行完，
+// 看 e.defaultPrevented 就能区分「被取消的手动拖拽」与「真实原生拖拽」。
 let dragging = false
 let dragListenersInstalled = false
 
 function onDocDragStartCapture(e: DragEvent) {
   const el = e.target as HTMLElement | null
-  if (el && el.closest?.("#sidebar")) dragging = true
+  if (!(el && el.closest?.("#sidebar"))) return
+  queueMicrotask(() => {
+    if (!e.defaultPrevented) dragging = true
+  })
 }
 
 function onDocDropCapture() {
@@ -190,7 +205,7 @@ function schedulePaint() {
  *  - 纯文字变化（重命名输入、日期格文字更新 → characterData）：不动结构、
  *    不影响列表配色，仍走 120ms 防抖低频重绘，避免每敲一键全量重绘。 */
 function onSidebarMutations(list: MutationRecord[]) {
-  if (dragging) {
+  if (dragging || isPageSortDragging()) {
     schedulePaint()
     return
   }

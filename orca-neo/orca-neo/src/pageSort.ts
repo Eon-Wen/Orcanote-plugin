@@ -330,6 +330,12 @@ let _dragging = false
 // 浏览器会退化成划选文本，Neo 主题的 ::selection 是强调色半透明蓝，划到哪蓝到哪
 const DRAG_SELECT_CLASS = "neo-pagesort-dragging"
 
+/** 供彩色文档树等观察器查询：侧栏拖拽进行中（指针自绘拖拽或原生 include-in 拖拽）。
+ *  手动模式取消的 dragstart 不再有 drop/dragend 收尾，只有这个标记覆盖拖拽全程。 */
+export function isPageSortDragging(): boolean {
+  return _dragging
+}
+
 function sidebarEl(): HTMLElement | null {
   return document.getElementById("sidebar") as HTMLElement | null
 }
