@@ -106,15 +106,23 @@ function mountBar() {
   }
 }
 
+// 上次写入的边界变量值（同步重算高频触发：resize / transitionend / ResizeObserver，
+// 值没变就跳过写入；remove 分支也据此跳过对不存在属性的删除）
+const geoCache = { left: null as string | null, right: null as string | null, top: null as string | null, bottom: null as string | null }
+
+function clearGeoVars() {
+  const s = document.body.style
+  if (geoCache.left !== null) { s.removeProperty("--neo-tabbar-left"); geoCache.left = null }
+  if (geoCache.right !== null) { s.removeProperty("--neo-tabbar-right"); geoCache.right = null }
+  if (geoCache.top !== null) { s.removeProperty("--neo-tabbar-top"); geoCache.top = null }
+  if (geoCache.bottom !== null) { s.removeProperty("--neo-tabbar-bottom"); geoCache.bottom = null }
+}
+
 function syncGeometry() {
   if (!bar) return
   // 融合时页签条在 headbar flex 流内，位置由布局决定，不写边界变量
   if (isFusion() && !isVertical()) {
-    const s = document.body.style
-    s.removeProperty("--neo-tabbar-left")
-    s.removeProperty("--neo-tabbar-right")
-    s.removeProperty("--neo-tabbar-top")
-    s.removeProperty("--neo-tabbar-bottom")
+    clearGeoVars()
     return
   }
   const main = document.getElementById("main")
@@ -123,16 +131,14 @@ function syncGeometry() {
   const s = document.body.style
   // 竖排时 #main 已被 margin-left 推开，页签栏要贴进这段留白里
   const w = isVertical() ? bar.getBoundingClientRect().width : 0
-  s.setProperty("--neo-tabbar-left", `${Math.max(0, Math.round(r.left - w))}px`)
-  s.setProperty(
-    "--neo-tabbar-right",
-    `${Math.max(0, Math.round(window.innerWidth - r.right))}px`,
-  )
-  s.setProperty("--neo-tabbar-top", `${Math.max(0, Math.round(r.top))}px`)
-  s.setProperty(
-    "--neo-tabbar-bottom",
-    `${Math.max(0, Math.round(window.innerHeight - r.bottom))}px`,
-  )
+  const left = `${Math.max(0, Math.round(r.left - w))}px`
+  const right = `${Math.max(0, Math.round(window.innerWidth - r.right))}px`
+  const top = `${Math.max(0, Math.round(r.top))}px`
+  const bottom = `${Math.max(0, Math.round(window.innerHeight - r.bottom))}px`
+  if (geoCache.left !== left) { s.setProperty("--neo-tabbar-left", left); geoCache.left = left }
+  if (geoCache.right !== right) { s.setProperty("--neo-tabbar-right", right); geoCache.right = right }
+  if (geoCache.top !== top) { s.setProperty("--neo-tabbar-top", top); geoCache.top = top }
+  if (geoCache.bottom !== bottom) { s.setProperty("--neo-tabbar-bottom", bottom); geoCache.bottom = bottom }
 }
 
 // ------------------------------------------------ 竖排宽度（拖拽调整 / 记忆）
@@ -832,6 +838,10 @@ export function disableTabs() {
   document.body.style.removeProperty("--neo-tabbar-right")
   document.body.style.removeProperty("--neo-tabbar-top")
   document.body.style.removeProperty("--neo-tabbar-bottom")
+  geoCache.left = null
+  geoCache.right = null
+  geoCache.top = null
+  geoCache.bottom = null
   resizeHandle?.removeEventListener("mousedown", onResizeDown)
   resizeHandle?.removeEventListener("dblclick", onResizeDblClick)
   resizeHandle?.remove()
