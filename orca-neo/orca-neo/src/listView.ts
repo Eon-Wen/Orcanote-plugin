@@ -209,13 +209,30 @@ export async function applyViews(): Promise<void> {
   forceHorizontalText()
 }
 
-/** 用内联 !important 强制表格内所有节点横排（只改文字方向，不动布局）。 */
+/** 用内联 !important 强制表格内所有节点横排（只改文字方向，不动布局）。
+ *  写入前先比较当前内联值（值 + important 优先级）：重扫时绝大多数元素已就位，
+ *  跳过重复写入，避免每次 body 变动都全量重写一遍内联样式。 */
 export function forceHorizontalText(): void {
   document.querySelectorAll(`[${ATTR}="table"] *`).forEach((el) => {
     const s = (el as HTMLElement).style
-    s.setProperty("writing-mode", "horizontal-tb", "important")
-    s.setProperty("text-orientation", "mixed", "important")
-    s.setProperty("direction", "ltr", "important")
+    if (
+      s.getPropertyValue("writing-mode") !== "horizontal-tb" ||
+      s.getPropertyPriority("writing-mode") !== "important"
+    ) {
+      s.setProperty("writing-mode", "horizontal-tb", "important")
+    }
+    if (
+      s.getPropertyValue("text-orientation") !== "mixed" ||
+      s.getPropertyPriority("text-orientation") !== "important"
+    ) {
+      s.setProperty("text-orientation", "mixed", "important")
+    }
+    if (
+      s.getPropertyValue("direction") !== "ltr" ||
+      s.getPropertyPriority("direction") !== "important"
+    ) {
+      s.setProperty("direction", "ltr", "important")
+    }
   })
 }
 
