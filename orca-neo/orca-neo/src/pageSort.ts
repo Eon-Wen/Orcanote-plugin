@@ -36,6 +36,7 @@ interface SortListSpec {
   rootSel: string
   listSel: string // 顶层条目容器
   wrapSel: string // 条目/包装块选择器
+  itemSel: string // 拖拽图标克隆源（原生 draggable 条目元素）
   nameSel: string | null // 名字元素
   nested: boolean // 条目是否嵌套子层（子层容器=wrap 元素自身）
 }
@@ -47,6 +48,7 @@ const LISTS: SortListSpec[] = [
     rootSel: ".orca-aliased",
     listSel: ".orca-aliased-list",
     wrapSel: ".orca-aliased-block",
+    itemSel: ".orca-aliased-block-item",
     nameSel: ".orca-aliased-block-name",
     nested: true,
   },
@@ -55,6 +57,7 @@ const LISTS: SortListSpec[] = [
     rootSel: ".orca-tags-list",
     listSel: ".orca-tags-list-list",
     wrapSel: ".orca-tags-tag",
+    itemSel: ".orca-tags-tag-item",
     nameSel: ".orca-tags-tag-name",
     nested: true,
   },
@@ -292,19 +295,57 @@ async function persistContainerOrder(spec: SortListSpec, container: HTMLElement)
   if (persistContainerOrderInto(spec, container)) await saveManualOrders()
 }
 
-// ── 手动拖拽（document 捕获阶段；页面/标签拦截原生 include-in 拖拽） ──
-let _dragSpec: SortListSpec | null = null
-let _dragKey: string | null = null
-let _dragContainer: HTMLElement | null = null
-// 拖拽进行中：观察器/重排必须停手——拖拽期间移动被拖元素会直接打断浏览器的拖拽操作
-let _dragging = false
+// ── 手动拖拽（指针事件自绘 + document 捕获阶段） ──
+// 弃用原生 HTML5 DnD 的原因（app.asar 逆向实证）：
+//   ① 条目 draggable 绑的是原生「拖入成为子项」（include-in：dragstart setData，
+//      drop 读 data 设 _is），我们只能用捕获阶段 stopPropagation 拦截——拦截后拖拽会话
+//      空数据、ghost 不跟手、dragover 被浏览器 100ms 节流，怎么补都「不灵敏」；
+//   ② 列表是 React 渲染且订阅 orca.state——拖拽中/放下后任何一次重渲染都会把 DOM 顺序
+//      拨回 React 虚拟顺序（打断拖拽 / 刚放下就弹回 = 「拖不动/失效」）。
+//   ③ 拖拽会话若没启动，浏览器退化划选文本，Neo ::selection 是强调色半透明蓝 = 整屏蓝选。
+// 改法：按住即禁文本选择（根治蓝选）；越过 4px 阈值后自绘 ghost 跟手（无节流、全速跟手）；
+// 松手按指针下条目落位，落位后立即+延时多重断言手动顺序（应对 React 重渲染还原）。
+interface DragState {
+  spec: SortListSpec
+  wrap: HTMLElement
+  item: HTMLElement // 拖拽图标克隆源（原生 draggable 条目元素，不含嵌套子层）
+  container: HTMLElement
+  key: string
+  startX: number
+  startY: number
+  lastX: number
+  lastY: number
+  moved: boolean
+  ghost: HTMLElement | null
+  scrollEl: HTMLElement | null
+}
 
-function clearDrag() {
-  _dragSpec = null
-  _dragKey = null
-  _dragContainer = null
-  _dragging = false
-  document.querySelectorAll(".neo-pagesort-over").forEach((el) => el.classList.remove("neo-pagesort-over"))
+let _drag: DragState | null = null
+let _overEl: HTMLElement | null = null
+let _suppressClick = false
+let _scrollRaf = 0
+// 拖拽进行中：观察器/重排必须停手——拖拽期间移动被拖元素会直接打断拖拽操作
+let _dragging = false
+// 按住条目期间禁止侧栏文本选择：原生拖拽被取消后若没进我们的指针拖拽（如快速点击），
+// 浏览器会退化成划选文本，Neo 主题的 ::selection 是强调色半透明蓝，划到哪蓝到哪
+const DRAG_SELECT_CLASS = "neo-pagesort-dragging"
+
+function sidebarEl(): HTMLElement | null {
+  return document.getElementById("sidebar") as HTMLElement | null
+}
+
+function itemElementOf(spec: SortListSpec, wrap: HTMLElement): HTMLElement {
+  return (wrap.querySelector(`:scope > ${spec.itemSel}`) as HTMLElement | null) ?? wrap
+}
+
+/** 沿祖先链找最近的可滚动容器（拖拽靠近上下边缘时自动滚动）。 */
+function scrollableAncestor(el: HTMLElement | null): HTMLElement | null {
+  for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+    if (node.scrollHeight <= node.clientHeight + 1) continue
+    const oy = getComputedStyle(node).overflowY
+    if (oy === "auto" || oy === "scroll" || oy === "overlay") return node
+  }
+  return null
 }
 
 function specOfItem(target: EventTarget | null): { spec: SortListSpec; wrap: HTMLElement } | null {
@@ -317,6 +358,147 @@ function specOfItem(target: EventTarget | null): { spec: SortListSpec; wrap: HTM
   return null
 }
 
+/** 把指针下的目标条目更新为高亮（只在目标切换时增删类）。 */
+function updateTarget(st: DragState, x: number, y: number) {
+  let target: HTMLElement | null = null
+  const hit = specOfItem(document.elementFromPoint(x, y))
+  if (hit && hit.spec === st.spec && hit.wrap.parentElement === st.container) target = hit.wrap
+  if (_overEl !== target) {
+    _overEl?.classList.remove("neo-pagesort-over")
+    target?.classList.add("neo-pagesort-over")
+    _overEl = target
+  }
+}
+
+/** 拖拽期间持续运行：指针停住时也能贴边自动滚动 + 刷新目标高亮。 */
+function tickDragScroll() {
+  const st = _drag
+  if (!st || !st.moved) {
+    _scrollRaf = 0
+    return
+  }
+  const sc = st.scrollEl
+  if (sc) {
+    const r = sc.getBoundingClientRect()
+    if (st.lastY > r.bottom - 32) sc.scrollTop += 10
+    else if (st.lastY < r.top + 32) sc.scrollTop -= 10
+  }
+  updateTarget(st, st.lastX, st.lastY)
+  _scrollRaf = requestAnimationFrame(tickDragScroll)
+}
+
+function onPointerDownCapture(e: PointerEvent) {
+  // 新一次按下：上一个拖拽若没有产生 click（浏览器可能吞掉），清掉残留的抑制标记，
+  // 防止误吃掉下一次点击
+  _suppressClick = false
+  if (e.button !== 0) return
+  if (e.ctrlKey || e.metaKey) return // Cmd/Ctrl+点击是多选（批量包含于），不走拖拽
+  const hit = specOfItem(e.target)
+  if (!hit) return
+  if (currentSortMode(hit.spec.id) !== "manual") return
+  sidebarEl()?.classList.add(DRAG_SELECT_CLASS)
+  try {
+    window.getSelection()?.removeAllRanges()
+  } catch {
+    /* ignore */
+  }
+  _drag = {
+    spec: hit.spec,
+    wrap: hit.wrap,
+    item: itemElementOf(hit.spec, hit.wrap),
+    container: hit.wrap.parentElement as HTMLElement,
+    key: itemKeyOf(hit.spec, hit.wrap),
+    startX: e.clientX,
+    startY: e.clientY,
+    lastX: e.clientX,
+    lastY: e.clientY,
+    moved: false,
+    ghost: null,
+    scrollEl: null,
+  }
+}
+
+function onPointerMoveCapture(e: PointerEvent) {
+  const st = _drag
+  if (!st) return
+  st.lastX = e.clientX
+  st.lastY = e.clientY
+  if (!st.moved) {
+    if (Math.hypot(e.clientX - st.startX, e.clientY - st.startY) < 4) return
+    st.moved = true
+    _dragging = true
+    st.scrollEl = scrollableAncestor(st.wrap)
+    const rect = st.item.getBoundingClientRect()
+    const ghost = st.item.cloneNode(true) as HTMLElement
+    ghost.classList.add("neo-pagesort-ghost")
+    ghost.style.left = `${rect.left}px`
+    ghost.style.top = `${rect.top}px`
+    ghost.style.width = `${rect.width}px`
+    const bg = getComputedStyle(st.item).backgroundColor
+    if (bg && bg !== "rgba(0, 0, 0, 0)") ghost.style.backgroundColor = bg
+    document.body.appendChild(ghost)
+    st.ghost = ghost
+    _scrollRaf = requestAnimationFrame(tickDragScroll)
+  }
+  if (st.ghost) {
+    st.ghost.style.transform = `translate(${e.clientX - st.startX}px, ${e.clientY - st.startY}px)`
+  }
+  updateTarget(st, e.clientX, e.clientY)
+}
+
+function finishDrag(commit: boolean) {
+  const st = _drag
+  if (!st) return
+  _drag = null
+  _dragging = false
+  if (st.moved && commit) {
+    _suppressClick = true // 吃掉拖拽结束后的 click（防页面被误打开）
+    const container = st.container
+    const dragWrap = directItems(st.spec, container).find((el) => itemKeyOf(st.spec, el) === st.key)
+    const targetWrap = _overEl && _overEl.parentElement === container ? _overEl : null
+    if (dragWrap && targetWrap && dragWrap !== targetWrap) {
+      container.insertBefore(dragWrap, targetWrap)
+      void persistContainerOrder(st.spec, container)
+    } else if (dragWrap && !targetWrap) {
+      container.appendChild(dragWrap)
+      void persistContainerOrder(st.spec, container)
+    }
+    // React 重渲染随时可能把顺序拨回虚拟顺序 → 立即 + 延时多重断言手动顺序
+    applySortToList(st.spec, "manual")
+    setTimeout(() => applySortToList(st.spec, "manual"), 100)
+    setTimeout(() => applySortToList(st.spec, "manual"), 500)
+  }
+  cancelAnimationFrame(_scrollRaf)
+  _scrollRaf = 0
+  st.ghost?.remove()
+  _overEl?.classList.remove("neo-pagesort-over")
+  _overEl = null
+  sidebarEl()?.classList.remove(DRAG_SELECT_CLASS)
+}
+
+function onPointerUpCapture() {
+  finishDrag(true)
+}
+
+function onPointerCancelCapture() {
+  finishDrag(false)
+}
+
+function onWindowBlur() {
+  finishDrag(false)
+}
+
+function onClickCapture(e: MouseEvent) {
+  if (!_suppressClick) return
+  _suppressClick = false
+  e.stopPropagation()
+  e.preventDefault()
+}
+
+function onKeyDownCapture(e: KeyboardEvent) {
+  if (_drag && e.key === "Escape") finishDrag(false)
+}
+
 function onDragStartCapture(e: DragEvent) {
   const hit = specOfItem(e.target)
   if (!hit) return
@@ -324,48 +506,15 @@ function onDragStartCapture(e: DragEvent) {
   // 否则非手动模式下的原生 include-in 拖拽也会被重排打断
   _dragging = true
   if (currentSortMode(hit.spec.id) !== "manual") return
-  _dragSpec = hit.spec
-  _dragContainer = hit.wrap.parentElement
-  _dragKey = itemKeyOf(hit.spec, hit.wrap)
-  e.stopPropagation() // 阻止原生 include-in 拖拽
-}
-
-function onDragOverCapture(e: DragEvent) {
-  if (_dragSpec == null) return
-  const hit = specOfItem(e.target)
-  if (!hit || hit.spec !== _dragSpec) return
-  if (hit.wrap.parentElement !== _dragContainer) return
+  // 手动模式：取消原生 include-in 拖拽（其 setData/setDragImage/drop 一并作废），
+  // 由上面的指针拖拽接管；取消原生 dragstart 不影响我们自绘的 ghost 跟随
   e.preventDefault()
   e.stopPropagation()
-  if (e.dataTransfer) e.dataTransfer.dropEffect = "move"
-  document.querySelectorAll(".neo-pagesort-over").forEach((el) => el.classList.remove("neo-pagesort-over"))
-  hit.wrap.classList.add("neo-pagesort-over")
-}
-
-function onDropCapture(e: DragEvent) {
-  if (_dragSpec == null) return
-  e.preventDefault()
-  e.stopPropagation()
-  const hit = specOfItem(e.target)
-  const targetWrap = hit && hit.spec === _dragSpec ? hit.wrap : null
-  const container = targetWrap?.parentElement ?? _dragContainer
-  if (!container || !_dragSpec) {
-    clearDrag()
-    return
-  }
-  const dragWrap = directItems(_dragSpec, container).find((el) => itemKeyOf(_dragSpec!, el) === _dragKey)
-  if (!dragWrap || dragWrap === targetWrap) {
-    clearDrag()
-    return
-  }
-  if (targetWrap) container.insertBefore(dragWrap, targetWrap)
-  else container.appendChild(dragWrap)
-  void persistContainerOrder(_dragSpec, container)
-  clearDrag()
 }
 
 function onDragEndCapture() {
-  clearDrag()
+  if (_drag?.moved) return // 指针拖拽还在进行，观察器保持停手
+  _dragging = false
 }
 
 // ── 观察与重应用 ──
@@ -448,19 +597,29 @@ export function installPageSort() {
     scheduleReapply()
   })
   _observer.observe(document.body, { childList: true, subtree: true })
+  document.addEventListener("pointerdown", onPointerDownCapture, true)
+  document.addEventListener("pointermove", onPointerMoveCapture, true)
+  document.addEventListener("pointerup", onPointerUpCapture, true)
+  document.addEventListener("pointercancel", onPointerCancelCapture, true)
+  document.addEventListener("click", onClickCapture, true)
+  document.addEventListener("keydown", onKeyDownCapture, true)
   document.addEventListener("dragstart", onDragStartCapture, true)
-  document.addEventListener("dragover", onDragOverCapture, true)
-  document.addEventListener("drop", onDropCapture, true)
   document.addEventListener("dragend", onDragEndCapture, true)
+  window.addEventListener("blur", onWindowBlur)
   void applyPageSort()
 }
 
 export function disposePageSort() {
   _observer?.disconnect()
   _observer = null
+  document.removeEventListener("pointerdown", onPointerDownCapture, true)
+  document.removeEventListener("pointermove", onPointerMoveCapture, true)
+  document.removeEventListener("pointerup", onPointerUpCapture, true)
+  document.removeEventListener("pointercancel", onPointerCancelCapture, true)
+  document.removeEventListener("click", onClickCapture, true)
+  document.removeEventListener("keydown", onKeyDownCapture, true)
   document.removeEventListener("dragstart", onDragStartCapture, true)
-  document.removeEventListener("dragover", onDragOverCapture, true)
-  document.removeEventListener("drop", onDropCapture, true)
   document.removeEventListener("dragend", onDragEndCapture, true)
-  clearDrag()
+  window.removeEventListener("blur", onWindowBlur)
+  finishDrag(false)
 }

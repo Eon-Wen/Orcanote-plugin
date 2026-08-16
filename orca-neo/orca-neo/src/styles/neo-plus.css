@@ -1584,6 +1584,21 @@ body.neo-frostedglass .neo-wc-popup {
   outline-offset: -2px;
   border-radius: 6px;
 }
+/* 手动拖拽自绘 ghost：跟随指针的条目克隆（pointer-events:none 保证不挡 elementFromPoint 命中判定） */
+.neo-pagesort-ghost {
+  position: fixed;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0.92;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+}
+/* 手动拖拽按住条目期间禁掉侧栏文本选择：若没进入拖拽（快速点击拖动），
+   浏览器会退化成文本划选，Neo ::selection 是强调色半透明蓝 → 整屏蓝选 */
+#sidebar.neo-pagesort-dragging,
+#sidebar.neo-pagesort-dragging * {
+  user-select: none !important;
+}
 
 /* --------------------------------------------------------------------------
    侧边栏页面多选（Cmd/Ctrl+点击）批量改「包含于」
