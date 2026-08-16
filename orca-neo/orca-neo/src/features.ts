@@ -430,11 +430,16 @@ export const typewriter = new Typewriter()
    关键修正：①用内联 data URI，绕开 webview 对 file:// 媒体的跨域 / 加载限制；
    ②每次 new 出的 Audio 放进 pool 持有引用，避免被 GC 回收导致播放被掐断
    （播放结束后从 pool 移除）。每次独立播放，天然支持多键叠音（混音）。
+   性能：播放完的实例回收进 free 池复用（按音源分桶），避免每次按键都
+   new Audio + 重新解码 data URI；复用实例只重设 currentTime/音量/音高，
+   音效与每次新建完全一致。
    -------------------------------------------------------------------------- */
 class TypeSound {
   private readonly onKey = (e: KeyboardEvent) => this.play(e)
   /** 持有正在播放的 Audio 引用，防止被垃圾回收中断播放 */
   private pool: Audio[] = []
+  /** 播放完回收的空闲实例（按音源分桶，取用时从头播放） */
+  private free = new Map<string, Audio[]>()
 
   enable() {
     document.addEventListener("keydown", this.onKey, true)
@@ -443,6 +448,7 @@ class TypeSound {
   disable() {
     document.removeEventListener("keydown", this.onKey, true)
     this.pool = []
+    this.free.clear()
   }
 
   private play(e: KeyboardEvent) {
@@ -454,15 +460,29 @@ class TypeSound {
     if (e.ctrlKey || e.metaKey || e.altKey) return
 
     const url = e.key === "Enter" ? ENTER_WAV : KEY_WAV
-    const audio = new Audio(url)
+    const idle = this.free.get(url)
+    let audio = idle && idle.length > 0 ? idle.pop()! : null
+    if (!audio) {
+      audio = new Audio(url)
+      // 播完回收进空闲池；监听只在新实例上绑一次（复用不叠加）
+      audio.addEventListener("ended", () => {
+        const i = this.pool.indexOf(audio!)
+        if (i >= 0) this.pool.splice(i, 1)
+        const arr = this.free.get(url) ?? []
+        arr.push(audio!)
+        this.free.set(url, arr)
+      })
+    } else {
+      // 复用：从头播放（个别引擎对未播过的实例 reset 会抛错，忽略）
+      try {
+        audio.currentTime = 0
+      } catch {
+        /* ignore */
+      }
+    }
     audio.volume = 0.45
     audio.playbackRate = 0.95 + Math.random() * 0.1 // 0.95 ~ 1.05 随机音高
     this.pool.push(audio)
-    audio.addEventListener("ended", () => {
-      audio.removeAttribute("src")
-      const i = this.pool.indexOf(audio)
-      if (i >= 0) this.pool.splice(i, 1)
-    })
     // 播放失败（极少见）静默忽略
     audio.play().catch(() => {})
   }
