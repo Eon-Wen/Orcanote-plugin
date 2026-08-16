@@ -70,6 +70,14 @@ function closestWrapper(el: Element | null, combined: string): Element | null {
   return null
 }
 
+/** 值没变就跳过写入：观察器重扫时大部分条目颜色已是最终值，
+ *  重复写同名内联变量没有视觉效果，只是白做一次声明替换。 */
+function setItemColor(el: HTMLElement, color: string) {
+  if (el.style.getPropertyValue("--neo-item-color") !== color) {
+    el.style.setProperty("--neo-item-color", color)
+  }
+}
+
 /** 给侧栏每个条目上色：顶级块按列表分组循环莫兰迪色，整棵子树（行 + 背景）共享同色。 */
 function paintItems(sidebar: Element) {
   const wrappers = Array.from(
@@ -77,7 +85,7 @@ function paintItems(sidebar: Element) {
   )
 
   // 把顶级包装按「所属列表容器」分组，每组独立从赤色开始循环
-  const groups = new Map<Element, Element[]>()
+  const groups = new Map<Element, HTMLElement[]>()
   for (const w of wrappers) {
     if (closestWrapper(w.parentElement, WRAPPER_COMBINED)) continue // 子块，交给父级统一上色
     const key = w.parentElement as Element
@@ -90,12 +98,12 @@ function paintItems(sidebar: Element) {
     list.forEach((w, i) => {
       const color = morandi(i)
       // 颜色写到顶级包装上，整棵子树（行 + 背景）共享同色
-      w.style.setProperty("--neo-item-color", color)
+      setItemColor(w, color)
       // 顶级包装打标：本子树（顶级块 + 其下展开的所有子块）共用一个连续背景
       w.classList.add("neo-cwrap")
       // 本包装内的所有行（顶级 + 其下展开的子块）共用同一颜色
       w.querySelectorAll<HTMLElement>(ROW_COMBINED).forEach((el) => {
-        el.style.setProperty("--neo-item-color", color)
+        setItemColor(el, color)
         el.classList.add("neo-citem")
       })
     })
@@ -114,25 +122,25 @@ function paintCalendar(sidebar: Element) {
     const n = parseInt((el.textContent || "").trim(), 10)
     const day = Number.isFinite(n) ? Math.min(Math.max(n, 1), daysInMonth) : 1
     const hue = (baseHue + ((day - 1) / Math.max(daysInMonth - 1, 1)) * 60) % 360
-    el.style.setProperty("--neo-item-color", `hsl(${hue} 72% 42%)`)
+    setItemColor(el as HTMLElement, `hsl(${hue} 72% 42%)`)
     el.classList.add("neo-cday")
   })
 
   // 表头（年/月/Now）与星期行：用当月基色
   for (const sel of CAL_HEAD_SELECTORS) {
     sidebar.querySelectorAll(sel).forEach((el) => {
-      el.style.setProperty("--neo-item-color", headColor)
+      setItemColor(el as HTMLElement, headColor)
       el.classList.add("neo-ccal")
     })
   }
 
   // 筛选弹窗（年列表 / 月列表）：随序号渐变，更丰富
   sidebar.querySelectorAll(CAL_POP_SELECTORS[0]).forEach((el, i) => {
-    el.style.setProperty("--neo-item-color", `hsl(${(baseHue + i * 6) % 360} 70% 45%)`)
+    setItemColor(el as HTMLElement, `hsl(${(baseHue + i * 6) % 360} 70% 45%)`)
     el.classList.add("neo-ccal")
   })
   sidebar.querySelectorAll(CAL_POP_SELECTORS[1]).forEach((el, i) => {
-    el.style.setProperty("--neo-item-color", `hsl(${(baseHue + i * 18) % 360} 70% 45%)`)
+    setItemColor(el as HTMLElement, `hsl(${(baseHue + i * 18) % 360} 70% 45%)`)
     el.classList.add("neo-ccal")
   })
 }
