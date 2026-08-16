@@ -391,8 +391,10 @@ class Typewriter {
 
     const scroller = this.getScrollParent(active as HTMLElement)
     const cRect = scroller.getBoundingClientRect()
-    // 当前行中心相对容器中心的偏移；scrollTop 加上该偏移即把行移到正中
+    // 当前行中心相对容器中心的偏移；scrollTop 加上该偏移即把行移到正中。
+    // 偏移小于半像素时视觉已居中，跳过写入（避免每帧无谓触发滚动事件链）。
     const delta = rect.top + rect.height / 2 - (cRect.top + cRect.height / 2)
+    if (Math.abs(delta) < 0.5) return
     scroller.scrollTop += delta
   }
 
